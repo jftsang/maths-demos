@@ -20,11 +20,15 @@ def discretise(xa, xb, nx=101, periodic=True):
     if periodic:
         pass
     else:
-        ddx[0, 4:] = 0; ddx[0, :4] = (-11/6, 3, -3/2, 1/3) / dx
-        ddx[-1, :-4] = 0; ddx[-1, -4:] = (-1/3, 3/2, -3, 11/6) / dx
+        ddx[0, 4:] = 0
+        ddx[0, :4] = (-11/6, 3, -3/2, 1/3) / dx
+        ddx[-1, :-4] = 0
+        ddx[-1, -4:] = (-1/3, 3/2, -3, 11/6) / dx
 
-        d2dx2[0, 4:] = 0; d2dx2[0, :4] = (2, -5, 4, -1) / (dx*dx)
-        d2dx2[-1, :-4] = 0; d2dx2[-1, -4:] = (-1, 4, -5, 2) / (dx*dx)
+        d2dx2[0, 4:] = 0
+        d2dx2[0, :4] = (2, -5, 4, -1) / (dx*dx)
+        d2dx2[-1, :-4] = 0
+        d2dx2[-1, -4:] = (-1, 4, -5, 2) / (dx*dx)
 
     return xs, dx, eye, ddx, d2dx2
 
@@ -57,6 +61,9 @@ def d4dx4_mat(nx, dx=1):
 
 
 def myeig(op, eye, *args, **kwargs):
+    """Wrapper around scipy.linalg.eig that returns eigenvalues
+    in order of their real parts, and normalizes the eigenvectors.
+    """
     nx = op.shape[0]
     eigvals, eigvecs = eig(op, eye, *args, **kwargs)
     ordering = sorted(range(nx), key=lambda i: np.real(eigvals)[i])
