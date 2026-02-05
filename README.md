@@ -1,18 +1,25 @@
-# Demos for Part IB Methods (and maybe other courses)
+# Demos for various Maths things
 
 By J M F Tsang (`j.m.f.tsang@cantab.net`). 
 
+This repository contains demos related to many maths things, especially
+stuff relevant to material from the Maths Tripos at Cambridge. Courses
+include Part IB Methods and Fluid Dynamics, and Part II Mathematical
+Biology and Dynamical Systems.
+
 The quickest way to use these is with Binder:
-https://mybinder.org/v2/gh/jftsang/ibmethods-demos/master. But note that
+https://mybinder.org/v2/gh/jftsang/ibmethods-demos/master. Please note that
 Binder environments expire after a few minutes of inactivity.
 
 These demos are maintained on
-[GitHub](https://github.com/jftsang/ibmethods-demos) at
-`jftsang/ibmethods-demos`, and I welcome any contributions or
+[GitHub](https://github.com/jftsang/maths-demos) at
+`jftsang/maths-demos`, and I welcome any contributions or
 corrections.
 
 
-## Other course resources
+## Other resources
+
+### For Part IB Methods
 
 Richard Jozsa's lecture notes from 2013 are probably the best reference
 for the material in this course (but check the Schedules). They can be
