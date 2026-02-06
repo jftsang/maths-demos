@@ -1,0 +1,60 @@
+name: Makefile CI
+
+on:
+  push:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        python -m pip install -r requirements.txt
+        python -m pip list
+
+    - name: "Download Quarto"
+      shell: bash
+      run: |
+        # Hardcoding versions for now to make sure new versions don't break things
+        quarto_version="1.2.269"
+        quarto_file_name="quarto-${quarto_version}-linux-amd64.deb"
+        quarto_url="https://github.com/quarto-dev/quarto-cli/releases/download/v${quarto_version}/${quarto_file_name}"
+
+        wget -q "${quarto_url}"
+
+        sudo dpkg -i "${quarto_file_name}"
+
+    - name: Build notebooks
+      run: |
+        make notebooks
+        cp -a build /tmp/notebooks
+
+    - name: Deploy notebooks to branch
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      run: |
+        git config --global user.name "github-actions[bot]"
+        git config --global user.email "github-actions[bot]@users.noreply.github.com"
+        git fetch origin notebooks || true
+        git checkout -B notebooks
+        git reset --hard
+        rm -rf ./*
+        cp -a /tmp/notebooks/. .
+        git add -A
+        git commit -m "Deploy updated notebooks" || echo "No changes to commit"
+        git push -f origin notebooks
+
