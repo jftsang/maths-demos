@@ -12,7 +12,6 @@ notebooks: $(IPYNB)
 	cp README.md build/
 
 build/%.ipynb: %.qmd
-	. $(VENV)/bin/activate
 	mkdir -p build
 	quarto convert $< -o $@
 

@@ -6,3 +6,6 @@
 *_files/
 __pycache__/
 /build/
+
+/.quarto/
+**/*.quarto_ipynb
