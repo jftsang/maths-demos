@@ -26,16 +26,35 @@ $$
 y_s(x, t) = \frac{Q}{\sqrt{4\pi D t}} \exp\left(\frac{-x^2}{4Dt}\right), \qquad
 Q = \int_{-\infty}^{\infty} y(x, 0) \, \mathrm{d}t
 $$
-Given any initial condition $y(x, 0)$ that is localised, it can be shown that, for $t\gg1$, the solution $y(x,t)$ approaches the similarity solution.
+Given any initial condition $y(x, 0)$ that is localised, it can be shown
+that, for $t\gg1$, the solution $y(x,t)$ approaches the similarity
+solution.
 
-(The precise definition of this is subtle, and the result can be derived using Fourier transforms and Laplace's method for estimating large integrals. This is covered in detail in _Methods_ and _Asymptotic Methods_.)
+(The precise definition of this is subtle, and the result can be derived
+using Fourier transforms and Laplace's method for estimating large
+integrals. It is related to the central limit theorem in probability
+theory, and proved using similar techniques. See the *Methods* and
+*Asymptotic Methods* courses.)
 
-The similarity solution can be derived using dimensional analysis. For $t\gg1$ it is assumed that all the details about the initial conditions are 'forgotten' due to the smoothing nature of diffusion; therefore, the resulting solution at a point $x$ may depend only on $x$, $t$, $D$ and the total quantity $Q = \int_{-\infty}^\infty y \,\mathrm{d}t$, which is conserved. The only way in which $x$, $t$ and $D$ may be combined into a dimensionless quantity is through $s = x/\sqrt{Dt}$. 
+The similarity solution can be derived using dimensional analysis. For
+$t\gg1$ it is assumed that all the details about the initial conditions
+are 'forgotten' due to the smoothing nature of diffusion. Therefore, the
+resulting solution at a point $x$ may depend only on $x$, $t$, $D$, and
+the total quantity $Q = \int_{-\infty}^\infty y \,\mathrm{d}t$, which is
+conserved. 
 
-In this demo, we have chosen units in which $D = 1$.
+The only way in which $x$, $t$ and $D$ may be combined into a
+dimensionless quantity is through $s = x/\sqrt{Dt}$. Thus, whatever the
+similarity solution $y_s(x, t)$ may be, it may depend on $x$ only
+through the nondimensional group $s = x/\sqrt{Dt}$.
+
+In this demo, we have chosen units in which $D = 1$. We let the initial
+condition $y(x, 0)$ be some arbitrary wiggly function, concentrated
+around $x=0$. It shall be seen that, whatever the shape the ic may take,
+the function quickly loses that detail and approaches the shape of the
+similarity solution.
 
 ```{python}
-#| scrolled: true
 dx = 0.01
 xs = np.arange(-10, 10, dx)
 
@@ -54,7 +73,10 @@ sol = solve_ivp(dydt, (0, 6), y0s)
 assert sol.success, sol.status
 
 ysol = interp1d(sol.t, sol.y)
+```
 
+
+```{python}
 @interact(t=widgets.FloatSlider(min=sol.t[0], max=sol.t[-1], step=0.01, continuous_update=False))
 def diffusion_spread(t):
     q = np.sum(y0s) * dx
@@ -62,7 +84,7 @@ def diffusion_spread(t):
         y_sim = q * (4 * np.pi * t)**(-0.5) * np.exp(-xs**2 / (4*t))
     else:
         y_sim = np.where(np.abs(xs) < dx, q / dx, 0)
-        
+
     fig, axs = plt.subplots()
 
     plt.plot(xs, ysol(t), 'k-')
@@ -72,9 +94,14 @@ def diffusion_spread(t):
     plt.show()
 ```
 
-One problem with the linear diffusion equation as a model is that 'information travels infinitely fast' - that is, we can have $y(x, t) \neq 0$ for arbitrarily large $x$ and arbitrary small $t$ despite $y(x, 0)$ being localised. This behaviour is not exhibited by nonlinear diffusion equations...
-
 ## Nonlinear diffusion (Mathematical Biology Sheet 3 Question 6)
+
+One problem with the linear diffusion equation as a model is that
+'information travels infinitely fast' - that is, we can have $y(x, t)
+\neq 0$ for arbitrarily large $x$ and arbitrary small $t$ despite $y(x,
+0)$ being localised. 
+
+This behaviour is not exhibited by some nonlinear diffusion equations.
 
 $$ C_t = k (C^p C_x)_x $$
 
@@ -95,7 +122,9 @@ sol = solve_ivp(dydt, (0, 10), y0s, method='Radau')
 assert sol.success, sol.message
 
 ysol = interp1d(sol.t, sol.y)
+```
 
+```{python}
 @interact(t=widgets.FloatSlider(min=sol.t[0], max=sol.t[-1], continuous_update=False))
 def diffusion_spread(t):
     fig, axs = plt.subplots()
