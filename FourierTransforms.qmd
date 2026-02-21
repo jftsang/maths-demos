@@ -1,0 +1,256 @@
+---
+title: Fourier transforms
+jupyter: python3
+---
+
+
+For 'suitably nice' (continuous) periodic functions on the finite interval $[-T/2, T/2]$, the Fourier modes $v_n(x) = \exp(2\pi n\mathrm{i} x / T)$ form a basis in the sense that one can write such a function as a (convergent) sum
+$$ f(x) = \sum_{n = -\infty}^\infty c_n v_n(x). $$
+This is called a Fourier series. Note that the modes take frequencies $2\pi n / T$, which are integer multiples of the fundamental frequency $2\pi / T$. Any other frequency would not satisfy the periodicity conditions.
+
+This idea can be extended to the case of functions defined on the infinite domain $\mathbb{R}$ (assuming suitable boundedness conditions as $x\rightarrow\pm\infty$. Such a function is not necessarily periodic. Observe that if the width of the interval $T$ is increased, the fundamental frequency becomes smaller and smaller, and eventually the allowed modes become a continuum, $v_k(x) = \exp(\mathrm{i} k x)$, where $k$ is the wavenumber. Thus, the space of functions defined on $\mathrm{R}$ has a continuum of basis functions, and we can replace the sum with an integral
+$$
+f(x) = \frac{1}{2\pi} \int_{-\infty}^\infty \tilde{f}(k) \exp(\mathrm{i} k x) \,\mathrm{d}k,
+$$
+where the $\tilde{f}(k)$ play the role of the coefficients $c_n$, and by convention we extract a $1/(2\pi)$ (although other conventions exist). The function $\tilde{f}$ is called the **Fourier transform** of $f$ and tells you the weighting of each periodic component. They can be obtained using the formula
+$$
+\tilde{f}(k) = \int_{-\infty}^\infty f(x) \exp(\mathrm{i} k x) \,\mathrm{d}x.
+$$
+
+Computers can't represent analogue functions exactly, nor can they work with a function defined on an infinite domain. The best they can do is to take samples $f_n = f(x_n)$ on a finite set of points $x_n = k \Delta x$ for $n = 0, 1, 2, \dots N-1$, and then calculate an approximation to the Fourier transform at discrete points using the rectangle rule to approximate the integral. This approximation to the Fourier transform is called the **discrete Fourier transform** (DFT) and is given (up to constants) by 
+$$
+\hat{f}_m = \sum_{n = 0}^{N} \exp\left(\frac{-2\pi mn}{N}\right) f_n = \sum_{n=0}^N \omega_{mn} f_n \approx \tilde{f}(k_m),
+$$
+where $k_m = (2\pi/T) m$ are integer multiples of a fundamental frequency: because the function is sampled on a finite range, it is not possible to consider modes of lower frequency than this. Moreover, because the sampling occurs at discrete points spaced $\Delta x$ apart, we cannot approximate $\tilde{f}(k)$ at finer frequencies than the maximum frequency $2/pi / \Delta x$.  
+
+The matrix of coefficients $(\omega_{mn})$ is unitary, and its periodicity properties allow the $\hat{f}_m$ to be calculated with remarkable speed using an algorithm known as the **fast Fourier transform** (FFT), a much faster algorithm than the usual matrix multiplication algorithms. 
+
+
+```{python}
+import numpy as np
+from scipy.signal import stft, spectrogram, get_window, hamming
+import matplotlib.pyplot as plt
+
+from ipywidgets import interact, interactive, fixed, interact_manual
+import ipywidgets as widgets
+
+from decorators import CompactSupport, Vectorize
+```
+
+```{python}
+def myfft(ys):
+    """Our FT convention that we will use in this course.
+    Note that conventions vary between packages and authors
+    over the normalisation.
+    For this course, we want our FTs to be independent of
+    the sample rate, so we'll normalise by multiplying by 2/nx.
+    """
+    # TODO - sort out the normalisation. It's wrong.
+    return np.fft.fftshift(np.fft.fft(ys, norm="ortho")) # * 2 / (np.pi * len(ys))
+
+def myifft(yfts):
+    return np.fft.ifft(np.fft.ifftshift(yfts), norm="ortho")
+```
+
+```{python}
+# The domain
+def get_domain(nx, xmax):
+    xs = np.linspace(-xmax, xmax, nx+1)[:-1]
+    dx = xs[1] - xs[0]
+    nyquist = np.pi / dx
+    ks = np.linspace(-nyquist, nyquist, nx+1)[:-1]
+    dk = ks[1] - ks[0]
+    return [xs, dx, ks, dk]
+```
+
+## Sheet 3, question 7: FTs of functions of finite extent
+
+```{python}
+@interact(c=widgets.FloatSlider(min=0, max=3, value=0.4, continuous_update=False),
+          a=widgets.FloatSlider(min=0, max=10, value=1, continuous_update=False),
+          fn=["tophat", "sinax", "cosax"])
+def q7demo(c, a, fn):
+    @Vectorize
+    @CompactSupport(-c, c)
+    def tophat(x):
+        return 1
+    
+    @Vectorize
+    @CompactSupport(-c, c)
+    def sinax(x):
+        return np.sin(a*x)
+    
+    @Vectorize
+    @CompactSupport(-c, c)
+    def cosax(x):
+        return np.cos(a*x)
+    
+    xs, dx, ks, dk = get_domain(4096, xmax=24)
+    ys = locals()[fn](xs)
+    yfts = myfft(ys)
+#     print(np.sum(np.real(yfts)) * dk)
+#     print(np.sum(np.abs(ys)**2) * dx, np.sum(np.abs(yfts) ** 2 * dk))
+    fig, axs = plt.subplots(1, 2, figsize=[14, 5])
+    axs[0].plot(xs, ys, 'k-')
+    axs[0].set(xlim=[-4,4])
+    axs[1].plot(ks, np.real(yfts), 'r-',
+                ks, np.imag(yfts), 'b-')
+    axs[1].set(xlim=[-15,15])
+    plt.show()
+```
+
+## Sheet 3, question 9: FTs of Gaussians
+
+The FT of a Gaussian is also a Gaussian. The sharper the original Gaussian, the flatter its transform. This is the mathematical 'explanation' behind the uncertainty principle in quantum mechanics.
+
+```{python}
+@interact(n=widgets.FloatSlider(min=0, max=8, value=1, continuous_update=False),
+          m=widgets.FloatSlider(min=-5, max=5, value=0, continuous_update=False))
+def q8demo(n, m):
+    @Vectorize
+    def gaussian(x):
+        return np.exp(-n**2 * (x - m)**2)
+    
+    xs, dx, ks, dk = get_domain(nx=1024, xmax=32)
+    ys = gaussian(xs)
+    yfts = myfft(ys)
+#     print(np.sum(np.real(yfts)) * dk)
+#     print(np.sum(np.abs(ys)**2) * dx, np.sum(np.abs(yfts) ** 2 * dk))
+    fig, axs = plt.subplots(2, 2, figsize=[14, 8])
+    axs[0, 0].plot(xs, ys, 'k-')
+    axs[0, 0].set(xlim=[-10,10], ylim=[-.1, 1.1])
+    axs[0, 0].grid()
+
+    axs[0, 1].plot(ks, np.abs(yfts), 'k-')
+    axs[0, 1].set(title="Magnitude of FT", xlim=[-15,15])
+    axs[0, 1].grid()
+
+    axs[1, 0].plot(ks, np.real(yfts), 'r-',
+                   ks, np.abs(yfts), 'k--',
+                   ks, -np.abs(yfts), 'k--')
+    axs[1, 0].set(title="Real part of FT", xlim=[-15,15])
+    axs[1, 0].grid()
+    axs[1, 1].plot(ks, np.imag(yfts), 'b-',
+                   ks, np.abs(yfts), 'k--',
+                   ks, -np.abs(yfts), 'k--')
+    axs[1, 1].set(title="Imaginary part of FT", xlim=[-15,15])
+    axs[1, 1].grid()
+
+    plt.show()
+```
+
+## Bonus: Transfer functions
+
+Since the Fourier modes $\exp(\mathrm{i} k x)$ are the eigenfunctions of the differential operator (that don't blow up as $x \rightarrow \pm\infty$, many inhomogeneous linear differential equations 
+$$ (Ly)(x) = f(x) $$
+can be solved by looking at their behaviour on individual Fourier modes. This is especially the case when $L$ has constant coefficients, for then differentiation becomes multiplication by $\mathrm{i} k$ in the wavenumber space.
+
+If $L$ is a linear differential operator with constant coefficients, transforming the differential equation gives something like
+$$
+K(k) \hat(y)(k) = \hat{f}(k), 
+$$
+and the solution is given by inverse-transforming $\hat{f}(k) / K(k)$. The function $K(k)$ is called the **transfer function**, and it tells you the response of $L$ to each mode. The amplitude of $K(k)$ tells you whether the operator $L$ amplifies or dampens signals of that wavenumber, while the phase (argument) of $K(k)$ tells you about translations (often interpretable as delays) in the signal.
+
+```{python}
+@np.vectorize
+def transfer_function(k):
+    return np.exp(-np.abs(k/8)) * np.exp(1j * k)
+
+xs, dx, ks, dk = get_domain(nx=4096, xmax=64)
+ys = (xs-2) * np.exp(-(xs-5)**2 / 100) * np.sin(7*xs) + (xs) * np.exp(-(xs+10)**2 / 100) * np.sin(xs)
+yfts = myfft(ys)
+y_out_fts = transfer_function(ks) * yfts 
+y_outs = myifft(y_out_fts)
+fig, axs = plt.subplots(2, 2, figsize=[14, 10])
+axs[0,0].plot(xs, ys, 'k-')
+axs[0,0].grid()
+axs[0,1].plot(xs, np.real(y_outs), 'r-',
+            xs, np.imag(y_outs), 'b-')
+axs[0,1].grid()
+
+axs[1,0].plot(#ks, np.real(yfts), 'r-',
+              #ks, np.imag(yfts), 'b-',
+              ks, np.abs(yfts), 'k--',
+              ks, -np.abs(yfts), 'k--')
+axs[1,0].set(xlim=[-8, 8])
+axs[1,0].grid()
+
+axs[1,1].plot(#ks, np.real(y_out_fts), 'r-',
+              #ks, np.imag(y_out_fts), 'b-',
+              ks, np.abs(y_out_fts), 'k--',
+              ks, -np.abs(y_out_fts), 'k--')
+axs[1,1].set(xlim=[-8, 8])
+axs[1,1].grid()
+```
+
+## Bonus: Short-time Fourier transform (STFT) and spectrogram
+
+Signals that modulate over time (such as a sound that changes pitch) cannot be described with a frequency distribution for all time. However, it may be meaningful to attribute frequencies to the signal within a short window of time. This is the **short-time Fourier transform** (STFT) and can be represented using a spectrogram, with time on the horizontal axis, frequency on the vertical axis, and magnitude of the STFT shown with colour.
+
+As the following demo shows, the window size can be adjusted to change the precision of the spectrogram in the time and frequency domains. A narrower window improves precision in the time domain but reduces precision in the frequency domain, while a wider window does the opposite. This is the same behaviour as the uncertainty principle in quantum mechanics, where a particle's momentum is proportional to the wavenumber of its wavefunction: a precise measurement of location reduces the precision to which momentum can be measured.
+
+```{python}
+@interact(window_width=widgets.IntSlider(min=2, max=500, value=200,
+                                         continuous_update=False))
+def stftdemo(window_width):
+    xmax = 24
+    xs, dx, ks, dk = get_domain(nx=12000, xmax=xmax)
+    ys = np.array([np.sin((30 + np.exp(x / 3))*x) * np.exp(-x**2 / 50) 
+                   + (0.5 * np.sin(60*x) if -8 < x < -2 else 0)
+                   for x in xs])
+
+    f, t, Zxx = stft(ys, fs=1/dx,
+                     nperseg=window_width,
+                     window=hamming(window_width))
+    
+    fig, axs = plt.subplots(2, 1, figsize=[14,8])
+    axs[0].plot(xs, ys)
+    axs[0].set(xlim=[-20, 20])
+    plt.pcolormesh(t-xmax, f*2*np.pi, np.abs(Zxx))
+    plt.gca().set(xlim=[-20, 20], ylim=[0, 100])
+```
+
+## Bonus: Water waves and dispersion relations
+
+Consider a single mode $\exp(\mathrm{i} k x)$ with spatial wavenumber $k$. If this function translates with with constant velocity $v$, it becomes $\exp(\mathrm{i} k (x-vt)) = \exp(\mathrm{i}k x - \mathrm{i}\omega t)$, where $\omega = vk$ is the frequency of the wave. 
+
+Now consider an arbitrary function $f(x,t)$. At time $t=0$, writing $f(x,0)$ as a combination of its individual modes, we have
+$$
+f(x,0) = \int_{-\infty}^\infty \tilde{f}(k, 0) \exp\left(\mathrm{i} k x\right) \mathrm{d}k
+$$
+where $\tilde{f}(k, t)$ is the spatial ($x$ to $k$) Fourier transform of $f(x,t)$. For $t>0$, suppose that each mode translates with a different velocity $v(k)$ and therefore has a different frequency $\omega(k)$. Then
+$$
+f(x,t) = \int_{-\infty}^\infty \tilde{f}(k, 0) \exp\left(\mathrm{i} k (x - v(k) t)\right) \mathrm{d}k.
+$$
+If $v$ is not constant then it is not the case that $f(x, t) = f(x-vt, 0)$: that is, the function does not keep its shape, but breaks up into its different modes, some travelling faster than others. This is called **dispersion**. The dependence of $\omega(k)$ on $k$ is called the **dispersion relation** of the system.
+
+Note that this time evolution according to a dispersion relation is very similar in concept to the transfer function (see above), except that the 'transfer function' now depends on time as well.
+
+For waves in deep water, it can be shown (Part IB *Fluid Dynamics I*) that the dispersion relation is $\omega(k)^2 = gk$, or $|v(k)| = (g/|k|)^{1/2}$. So, longer waves (lower $k$) travel faster than shorter waves. In general, it won't be possible to do the integral, but it is possible to derive some asymptotic properties: see Part II *Waves*. (Subtlety: there are actually two waves: one travelling rightwards and another travelling leftwards. In this demo, we take them to have the same magnitude, but in fact it depends on the initial conditions. This is because the wave equation that governs $f$ is second-order in time, and differentiating $f$ twice with respect to $t$ brings out a $\omega^2$.) 
+
+Dispersion also occurs in electromagnetic signals, when waves of different frequencies travel at different speeds in certain media. Glass and wet air are both dispersive, so that white light (a mixture of different frequencies) breaks apart into its different components, forming a rainbow. Since dispersion causes waves to lose their shape, it is a problem in fibre-optic communications.
+
+```{python}
+@np.vectorize
+def disprel(k):
+    return np.sqrt(np.abs(k))
+
+@np.vectorize
+def transfer_function(k, t):
+    return np.cos(disprel(k) * t)
+
+@interact(t=widgets.FloatSlider(min=0, max=60, continuous_update=False))
+def dispersion_relation_demo(t):
+    xs, dx, ks, dk = get_domain(nx=4096, xmax=128)
+    ys = np.exp(-xs ** 2)
+    yfts = myfft(ys)
+    y_out_fts = transfer_function(ks, t) * yfts 
+    y_outs = myifft(y_out_fts)
+    fig, axs = plt.subplots(1, 1, figsize=[14, 4])
+    axs.plot(xs, ys, 'k--')
+    axs.grid()
+    axs.plot(xs, np.real(y_outs), 'k-')
+    axs.set_ylim([-0.5, 1.2])
+```
+
+

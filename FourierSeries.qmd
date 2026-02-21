@@ -1,0 +1,404 @@
+---
+title: Fourier series
+jupyter: python3
+---
+
+
+
+```{python}
+#| scrolled: false
+import numpy as np
+import matplotlib.pyplot as plt
+
+from ipywidgets import interact, interactive, fixed, interact_manual
+import ipywidgets as widgets
+
+from decorators import Periodicise, Reflect, Clipping
+```
+
+```{python}
+#| scrolled: false
+def myfft(ys):
+    """The FFT convention that we will use in this course.
+    Note that conventions vary between packages and authors
+    over the normalisation.
+    For this course, we want our FFTs to be independent of
+    the sample rate, so we'll normalise by multiplying by 2/nx.
+    """
+    return np.fft.fft(ys, norm=None) * (2/len(ys))
+
+def anbn(ys):
+    """Return two arrays, the cosine and sine coefficients.
+    Note that the 0-frequency term in the series (in this course's
+    convention) is a0/2."""
+    ft = myfft(ys)
+    ans = np.real(ft)
+    bns = -np.imag(ft)
+    return np.array([ans, bns])
+
+def partial_fourier_sum(fourier_coeffs, period, nterms=5):
+    an, bn = fourier_coeffs
+    def Sn(x):
+        psum = an[0]/2
+        for i in range(1, nterms+1):
+            psum += an[i]*np.cos(i*2*np.pi*x / period)
+            psum += bn[i]*np.sin(i*2*np.pi*x / period)
+        return psum
+    return Sn
+
+def bandpass(fourier_coeffs, period, band):
+    an, bn = fourier_coeffs
+    def Sn(x):
+        psum = an[0]/2
+        for i in band:
+            psum += an[i]*np.cos(i*2*np.pi*x / period)
+            psum += bn[i]*np.sin(i*2*np.pi*x / period)
+        return psum
+    return Sn
+```
+
+```{python}
+#| scrolled: false
+# The domain (we'll go from 0 to xmax, and may need
+# to periodicise or translate our function if it was
+# originally defined on a different domain)
+nx = 256
+xmax = 2*np.pi
+dx = xmax/nx
+
+# Angular wavenumbers (or frequency). Angular, so 2pis in numerator.
+# The wavenumbers in principle go up to 2pi/dx,
+# but actually only half of these carry any physical information,
+# up to the Nyquist frequency of 2pi / (2dx).
+nyquist = np.pi / dx 
+ks = np.linspace(0, 2*nyquist, nx+1)[0:-1]
+
+# For looking at Fourier series coefficients, we'll multiply by L/(2pi)
+# to get the integer wavenumbers.
+ns = ks * xmax / (2*np.pi)
+```
+
+# Question 1
+
+```{python}
+nx = 256
+period = 2
+
+@Periodicise(-1, 1)
+# @Reflect("odd", 0)
+def f_unv(x):
+    return (x**2 - 1)**2 # Q1
+f = np.vectorize(f_unv, otypes=[float])
+# Note need to specify float explicitly when vectorizing
+# (otherwise, type determined automatically from the first output)
+
+# We'll take the domain to be from 0 to 2 instead of -1 to 1.
+# Doesn't matter, since the function is periodic anyway.
+xs = np.linspace(0, period, nx+1)[:-1]
+ys = f(xs) # Why does this get floored?
+# Plot beyond our domain (just for demonstration purposes)
+xps = np.linspace(-2, 2, 256)
+yps = np.array([f(x) for x in xps])
+
+fig, axs = plt.subplots(2, 1, figsize=[14, 8])
+axs[0].grid()
+axs[0].plot(xs, ys, "k",
+        xps, yps, 'k--')
+
+yft = myfft(ys)
+fourier_coeffs = anbn(ys)
+
+axs[1].set(title="Fourier coefficients")
+axs[1].legend(['cosine', 'sine'])
+axs[1].set(xlim=[0, 12])
+axs[1].grid()
+axs[1].plot(ns, fourier_coeffs[0], 'ko',
+            ns, fourier_coeffs[1], 'rx')
+
+plt.show()
+```
+
+```{python}
+@interact(num=widgets.IntSlider(min=1, max=3))
+def q1_partial_sums(num):
+    fig, axs = plt.subplots(figsize=[14, 5])
+    axs.set(title="Partial sums of the Fourier series")
+    axs.grid()
+    axs.plot(xps, yps, "k",
+             xps, partial_fourier_sum(fourier_coeffs, period, num)(xps), 'r--')
+    axs.set(ylim=[-0.1, 1.1])
+    plt.show()
+```
+
+## Question 2: Half-range series
+
+When a function $f$ is extended beyond its original domain, it or its derivatives may become discontinuous. In this case the Fourier series of $f$ may have very poor convergence properties at the endpoints (Gibbs phenomenon). Moreover, the term-by-term derivative of the extension may be very different from the Fourier series of the extension itself. 
+
+In particular, if the extension of $f$ has a discontinuity (usually at the endpoints of the extended domain), then the term-by-term derivative at that point would diverge to $\pm\infty$, even if the extension of the derivative is continuous.
+
+```{python}
+#| scrolled: false
+nx = 256
+period = 2*np.pi
+
+@interact(num_terms=widgets.IntSlider(min=1, max=12, continuous_update=False),
+          symmetry={"even": 1, "odd": -1})
+def q2demo(num_terms, symmetry):
+    @Periodicise(-np.pi, np.pi)
+    @Reflect(symmetry, 0)
+    def f(x):
+        return x**2
+    
+    @Periodicise(-np.pi, np.pi)
+    @Reflect(-symmetry, 0)
+    def dfdx(x):
+        return 2*x
+
+    f = np.vectorize(f, otypes=[float])
+    dfdx = np.vectorize(dfdx, otypes=[float])
+
+    xs = np.linspace(0, period, nx+1)[:-1]
+    ys = f(xs) # Why does this get floored?
+    # Plot beyond our domain (just for demonstration purposes)
+    xps = np.linspace(-2*np.pi, 2*np.pi, 256)
+    yps = f(xps)
+    dydxps = dfdx(xps)
+    
+    yft = myfft(ys)
+    fourier_coeffs = anbn(ys)
+
+    fig, axs = plt.subplots(3, 1, figsize=[14, 8])
+    axs[0].grid()
+    axs[0].plot(xs, f(xs), "k",
+                xps, f(xps), 'k:',
+                xps, partial_fourier_sum(fourier_coeffs, period, num_terms)(xps), 'r--')
+    axs[0].set_title('Partial sums of the Fourier series')
+    
+    
+    def partial_fourier_sum_termwise_deriv(fourier_coeffs, period, nterms=5):
+        an, bn = fourier_coeffs
+        def Sn(x):
+            psum = 0
+            for i in range(1, nterms+1):
+                psum += -i*2*np.pi/period * an[i]*np.sin(i*2*np.pi*x / period)
+                psum += i*2*np.pi/period *  bn[i]*np.cos(i*2*np.pi*x / period)
+            return psum
+        return Sn
+    
+    axs[1].grid()
+    axs[1].plot(xs, dfdx(xs), "k",
+                xps, dfdx(xps), 'k:',
+                xps, partial_fourier_sum_termwise_deriv(fourier_coeffs,
+                                         period, num_terms)(xps), 'r--')
+    axs[1].set_title('Partial sums of the term-by-term derivatives of the Fourier series')
+
+    axs[2].set(title="Fourier coefficients")
+    axs[2].legend(['cosine', 'sine'])
+    axs[2].set(xlim=[0, 12])
+    axs[2].grid()
+    if symmetry == "even":
+        axs[2].plot(ns, fourier_coeffs[0], 'ko-')
+    else:
+        axs[2].plot(ns, fourier_coeffs[1], 'rx-')
+
+    plt.show()
+```
+
+## Question 3: Series summation
+
+```{python}
+#| scrolled: false
+nx = 256
+period = 2*np.pi
+
+@Periodicise(-np.pi, np.pi)
+def f(x):
+    return np.exp(x)
+
+f = np.vectorize(f, otypes=[float])
+
+xs = np.linspace(0, period, nx+1)[:-1]
+ys = f(xs) # Why does this get floored?
+# Plot beyond our domain (just for demonstration purposes)
+xps = np.linspace(-2*np.pi, 2*np.pi, 256)
+yps = f(xps)
+yft = myfft(ys)
+fourier_coeffs = anbn(ys)
+
+fig, axs = plt.subplots(2, 1, figsize=[14, 8])
+axs[0].grid()
+axs[0].plot(xs, ys, "k",
+            xps, yps, 'k:',
+            xps, partial_fourier_sum(fourier_coeffs, period, 10)(xps), 'r--')
+
+
+axs[1].set(title="Fourier coefficients")
+axs[1].set(xlim=[0, 12])
+axs[1].grid()
+axs[1].plot(ns, fourier_coeffs[0], 'ko-',
+            ns, fourier_coeffs[1], 'rx-')
+axs[1].legend(['cosine', 'sine'])
+
+plt.show()
+```
+
+## Question 5: Square wave and the Gibbs phenomenon
+
+Fourier series of discontinuous (but integrable) functions have extremely poor convergence properties. At a discontinuity, the series converges towards the midpoint of the limits on either side of the discontinuity. The convergence elsewhere is also very slow: in fact, in any neighbourhood of the discontinuity the convergence is pointwise but not uniform. Moreover, the terms in the Fourier series decay very slowly: in the case of the square wave, they fall off as $O(1/n)$. This makes partial sums of the Fourier series poor approximations to the function everywhere, not just near the discontinuity, as oscillatory features remain strong.
+
+```{python}
+#| scrolled: false
+@Periodicise(0, 2*np.pi)
+def f_unv(x):
+    return (1 + np.sign(np.sin(x))) / 2 # square wave - Q5
+
+f = np.vectorize(f_unv, otypes=[float])
+nx = 256
+xmax = 2*np.pi
+xs = np.linspace(0, xmax, nx+1)
+dx = xs[1] - xs[0]
+nyquist = np.pi / dx 
+ks = np.linspace(0, 2*nyquist, nx+1)[0:-1]
+ns = ks * xmax / (2*np.pi)
+
+xs = np.linspace(0, xmax, nx+1)[:-1]
+ys = f(xs)
+yft = myfft(ys)
+fourier_coeffs = anbn(ys)
+
+@interact(num_terms=widgets.IntSlider(min=1, max=24))
+def q5_partial_sums(num_terms):
+    fig, axs = plt.subplots(figsize=[14, 5])
+    # ax.set(xlim=[0, xmax])
+    axs.grid()
+    axs.plot(xs, ys, "k",
+             xs, partial_fourier_sum(fourier_coeffs, xmax, 2*num_terms-1)(xs), 'r--')
+#              xs, bandpass(fourier_coeffs, xmax, range(17, 100))(xs), 'r--')
+    axs.set(ylim=[-0.3, 1.3])
+    plt.show()
+```
+
+## Bonus: Audio clipping and distortion
+
+Amplifying or time-shifting a signal are linear processes: they may change the amplitude and phase of each Fourier mode, but they act on each mode independently. You can think of the Fourier modes as the components of an infinite-dimensional vector, and the linear process as an infinite matrix; since the Fourier modes are eigenfunctions of the differential operator (combining sines and cosines into single terms), this matrix is diagonal.
+
+However, many important operations are nonlinear. For example, a microphone recording a very loud input signal transfers an output signal that is clipped, or capped at a peak level. (This is similar to an image saturating because the photo is too bright or the exposure time was too high.) Clipping is a nonlinear process, and as the following demo shows, the clipped function possesses higher harmonics that the non-clipped signal does not possess. The presence of higher harmonics changes the timbre of the sound, and is the principle by which the relatively 'pure' sound of a vibrating string can be magnified into the 'lead'-like sound of an electric guitar. 
+
+As the amplitude of the incoming signal is increased more and more, the output signal resembles more and more a square wave, which is discontinuous and has Fourier coefficients dropping off as $O(1/n)$ rather than $O(1/n^2)$. This leads to very poor convergence properties throughout, affecting not only the clipped regions but the rest of the signal as well.
+
+```{python}
+nx = 256
+period = 1
+
+@interact(amp=widgets.FloatSlider(min=0, max=2.5, value=0.4))
+def audio_clipping_demo(amp):
+    def f_unv(x):
+        return amp * (np.sin(2*np.pi*x) - 0.5*np.sin(6*np.pi*x))
+
+    f_noclip = np.vectorize(f_unv, otypes=[float])
+    f = np.vectorize(Clipping()(f_noclip))
+
+    xs = np.linspace(0, period, nx+1)[:-1]
+    ys = f(xs) 
+    xps = np.linspace(0, 2*period, 256)
+    yps = np.array([f_noclip(x) for x in xps])
+    yft = myfft(ys)
+    fourier_coeffs = anbn(ys)
+
+    fig, axs = plt.subplots(1, 2, figsize=[14, 6])
+    axs[0].set(xlim=[0, 2*period], ylim=[-1.6, 1.6])
+    axs[0].grid()
+    axs[0].plot(xs, ys, "k",
+                xps, yps, 'k',
+                xps, partial_fourier_sum(fourier_coeffs, period, 8)(xps), 'r-')
+
+
+    axs[1].set(title="Fourier coefficients (abs)")
+    axs[1].set(xlim=[0, 12], ylim=[0, 1.3])
+    axs[1].grid()
+    axs[1].plot(ns[1::2], np.abs(fourier_coeffs[1][1::2]), 'r-x')
+    
+    plt.show()
+```
+
+## JPEG artifacts near boundaries
+
+JPEG images are compressed by taking a discrete Fourier transform and eliminatng the higher-frequency terms, the reasoning being that the eye cannot resolve such fine detail. This is problematic at sharp boundaries, and 'oscillations' from the Gibbs phenomenon can be seen to affect even far away from the boundary.
+
+![JPEG artifacts near sharp boundaries](https://blogs.adobe.com/lightroomjournal/files/2016/09/jpeg-artifacts2.jpg) (Source: [Adobe](https://blogs.adobe.com/lightroomjournal/2016/09/lightroom-for-ios-2-5-0.html))
+
+## Bonus: Poor behaviour at high wavenumbers 
+
+```{python}
+nx = 256
+period = 2
+
+@interact(mode=widgets.IntSlider(min=1, max=12, value=1))
+def noise_demo(mode):
+    def f(x):
+        return 1/mode * np.sin(mode * np.pi * x)
+    
+    xs = np.linspace(0, period, nx+1)[:-1]
+    ys = f(xs) 
+    xps = np.linspace(0, 2*period, 256)
+    yps = np.array([f(x) for x in xps])
+    yft = myfft(ys)
+    fourier_coeffs = anbn(yps)
+    fig, axs = plt.subplots(1, 2, figsize=[14, 6])
+    axs[0].set(xlim=[0, 2*period], ylim=[-1.6, 1.6])
+    axs[0].grid()
+    axs[0].plot(xps, yps, "k")
+
+
+    axs[1].set(title="Fourier coefficients (abs)")
+    axs[1].set(xlim=[0, 12], ylim=[-0.1, 0.1])
+    axs[1].grid()
+    axs[1].plot(ns[1::2], (fourier_coeffs[1][1::2]), 'r-x')
+    
+    plt.show()
+```
+
+## Good convergence properties
+
+All that said, Fourier series typically do have very good convergence properties provided that the function is continuous, even if it is not infinitely differentiable. In particular, if the FS converges then the convergence is uniform on the domain.
+
+Contrast this against Taylor series, which may fail to converge at all (they may have a finite radius of convergence); and even when they do converge they exhibit poor numerical behaviour such as Runge's phenomenon ([Wikipedia](https://en.wikipedia.org/wiki/Runge's_phenomenon)). 
+
+A classic example is the function
+$$ f(x) = \frac{1}{1 + x^2} $$
+on the domain $x \in [0, 4)$ (say), with even symmetry about $x = 0$. The Fourier series (cosines only) to three terms already shows good behaviour. On the other hand, the Taylor series
+$$ f(x) \sim 1 - x^2 + x^4 - x^6 + ... $$
+does not converge at all, except within its radius of convergence $|x| < 1$. The divergence of the Taylor series for $|x| \geq 1$ - rather mysterious, given that $f$ is well-behaved within this interval - is due to the singularity of $f(x)$ at the _complex_ values $x = \pm \mathrm{i}$. 
+
+The Fourier series, taken on the real axis, has no such issue and converges uniformly --- provided that the function is periodic at the endpoints.
+
+```{python}
+#| scrolled: true
+nx = 256
+
+@Periodicise(-2, 2)
+@Reflect(1)
+def f_unv(x):
+    return (1 + x ** 2)**-1
+f = np.vectorize(f_unv, otypes=[float])
+
+xs = np.linspace(-2, 2, nx+1)[:-1]
+ys = f(xs)
+
+yft = myfft(ys)
+fourier_coeffs = anbn(ys)
+
+@Periodicise(-2, 2)
+def yftps(x):
+    return partial_fourier_sum(fourier_coeffs, 4, 3)(x - 2)
+
+fig, axs = plt.subplots(1, 1, figsize=[14, 4])
+axs.grid()
+axs.plot(xs, ys, "k",
+        xs, yftps(xs), 'r--',
+        xs, 1 - xs ** 2 + xs ** 4 - xs ** 6 + xs ** 8 - xs ** 10, 'b:')
+axs.set_ylim(-0.1, 1.1)
+axs.legend(['exact', 'Fourier (3 terms)', 'Taylor (6 terms)'])
+plt.show()
+```
+
