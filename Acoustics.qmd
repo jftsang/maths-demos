@@ -1,0 +1,287 @@
+---
+title: Acoustic examples
+jupyter: python3
+---
+
+
+A sound signal can be described by its pressure field, $p(x,t)$; its measurement at a particular location can be written as $y(t)$. Many important acoustic processes are linear and so can be described using linear operators $\mathcal{L}$ on $y$. Equivalently, since the domain of $y$ is $t\in\mathbb{R}$, we can think about operators on its Fourier transform $\mathcal{F}y(\omega)$ (where the angular frequency $\omega = 2\pi f$). 
+
+Many operators of interest have no explicit time-dependence (they are invariant under time-translation). They can be written as convolutions, and can be characterised by their kernels. Equivalently, by the convolution theorem, they can be characterised as a transfer function, or filter, $R(\omega)$ by which one multiplies the Fourier transform, so that $\mathcal{L}y = \mathcal{F}^{-1} R \mathcal{F} y$.
+
+
+```{python}
+import itertools
+from itertools import chain
+import sys
+import time
+
+import numpy as np
+import matplotlib.pyplot as plt
+import pyaudio
+import sounddevice as sd
+import wave
+from ipywidgets import interact, interactive, fixed, interact_manual
+import ipywidgets as widgets
+```
+
+```{python}
+def myfft(ys):
+    """Our FT convention that we will use in this course.
+    Note that conventions vary between packages and authors
+    over the normalisation.
+    For this course, we want our FTs to be independent of
+    the sample rate, so we'll normalise by multiplying by 2/nx.
+    """
+    # TODO - sort out the normalisation. It's wrong.
+    return np.fft.fftshift(np.fft.fft(ys, norm="ortho")) # * 2 / (np.pi * len(ys))
+
+def myifft(yfts):
+    return np.fft.ifft(np.fft.ifftshift(yfts), norm="ortho")
+```
+
+```{python}
+SAMPLE_RATE = 44000  # Record at 16k samples per second
+CHUNK = 1024  # Record in chunks of 1024 samples
+sample_format = pyaudio.paInt16  # 16 bits (2 bytes) per sample
+CHANNELS = 1
+seconds = 10
+filename = "output.wav"
+
+ONE_DBFS = 8192 / 1.122
+TEN_DBFS = 8192 / 10
+```
+
+## Record a sound
+
+Try speaking, singing or humming a melody (try a variety of pitches and vowel sounds), or making other noises. 'Impulsive' sounds like claps, coughs or consonants are essentially delta functions: they don't have a definite pitch so their Fourier transforms are mostly flat. 'The North Wind and the Sun' is a common example text in phonology as it has a variety of common English sounds.
+
+```{python}
+print(f"Recording for {seconds}s")
+
+p = pyaudio.PyAudio()  # Create an interface to PortAudio
+stream = p.open(format=sample_format,
+                channels=CHANNELS,
+                rate=SAMPLE_RATE,
+                frames_per_buffer=CHUNK,
+                input=True)
+
+# Store data in chunks (frames)
+frames = [] 
+for i in range(0, int(SAMPLE_RATE / CHUNK * seconds)):
+    data = stream.read(CHUNK)
+    frames.append(data)
+
+# Stop and close the stream 
+stream.stop_stream()
+stream.close()
+# Terminate the PortAudio interface
+p.terminate()
+
+print('Finished recording')
+```
+
+Convert it to an array of integers, and normalise so that the peak amplitude is -1dBFS (just below clipping). 
+
+```{python}
+def frame_to_signal(frame):
+    """Convert frame (list of bytes) to a signal (list of numbers). 
+    Note that there are two bytes per 'frame' since we are 
+    recording with 16-bit depth.
+    """
+    return [
+        int.from_bytes([frame[i], frame[i + 1]], sys.byteorder)
+        for i in range(0, len(frame), 2)
+    ]
+    
+def normalise(signal, new_peak_amp=ONE_DBFS):
+    return np.array(signal * ( new_peak_amp / np.max(np.abs(signal)) ), 'int16')
+    
+# Chain all the frames together
+wholesignal = np.array(list(chain(*[frame_to_signal(f) for f in frames])), 'int16')
+
+# Normalise
+wholesignal = normalise(wholesignal)
+
+
+# Calculate its Fourier transform
+ft = myfft(wholesignal)
+freqs = np.linspace(-SAMPLE_RATE/2, SAMPLE_RATE/2, len(wholesignal))
+```
+
+Play it back.
+
+```{python}
+sd.play(wholesignal, SAMPLE_RATE)
+```
+
+## Apply filters to your recording
+
+```{python}
+@interact(filtname=[
+    "none",
+    "simple echo (delay)",
+    "low pass",
+    "high pass",
+    "band pass",
+    "low pass and dispersion",
+    "dispersive",
+    "phaser",
+])
+def filter_demo(filtname):
+    if filtname == "none":
+        filt = 1
+        
+    elif filtname == "simple echo (delay)":
+        # One signal after the other
+        filt = 1 + np.exp(-2*np.pi * 1j * freqs)
+   
+    elif filtname == "low pass":
+        filt = np.exp(-np.abs(freqs) / 440)
+        
+    elif filtname == "high pass":
+        cutoff = 2000
+        dropoff = 220
+        filt = np.vectorize(lambda f: np.exp(-(cutoff - f) / 220) if f < cutoff else 1)(freqs)
+        
+#     band pass (A3 = 220, E5 = 660)
+    elif filtname == "band pass":
+        filt = np.vectorize(lambda f: 1 if 100 < f < 1000 else 0)(freqs)
+
+    elif filtname == "low pass and dispersion":
+        filt = np.exp(-np.abs(freqs) / 8000) * (1 + np.exp(-2*np.pi * 1j * (1 + freqs/40000) * freqs))
+
+    elif filtname == "dispersive":
+        # Higher frequencies travel more slowly, 'lag behind'.
+        # Impulses become chirps.
+        filt = 1 + np.exp(-2*np.pi * 1j * (freqs/4e5) * freqs)
+        
+    elif filtname == "phaser":
+        # Picks out particular frequencies (overtones of D4 = 293.7Hz). 
+        # Voice sounds like C-3PO. Try singing something in D and then
+        # something in an unrelated key like D-flat.
+        filt = (np.cos(2*np.pi*freqs/293.7) ** 4) 
+        
+    else:
+        raise NotImplementedError
+
+
+    transformed_signal = np.real(myifft(
+        ft * filt
+    ))
+    
+    plt.plot(
+        freqs, np.abs(ft)**2,
+        freqs, np.abs(ft*filt)**2)
+    ax = plt.gca()
+    ax.set_xlim([20, None])
+    ax.set_ylim([1e-6, None])
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.grid()
+    
+    @interact_manual()
+    def demo_play():
+        sd.play(normalise(transformed_signal), SAMPLE_RATE)
+```
+
+```{python}
+# Save the recorded data as a WAV file
+wf = wave.open(filename, 'wb')
+wf.setnchannels(CHANNELS)
+wf.setsampwidth(p.get_sample_size(sample_format))
+wf.setframerate(SAMPLE_RATE)
+wf.writeframes(b''.join(frames))
+wf.close()
+```
+
+## Applying a room filter
+
+```{python}
+distance = 1
+width = 0.2
+reflectivity = 1
+soundspeed = 330
+    
+def pathlen(n):
+    """Length of the path that takes n reflections
+    between source and receiver.
+    """
+    return ((distance**2 + (width/2 * n)**2))**(1/2)
+
+@np.vectorize
+def response_onemode(freq, n):
+    return (reflectivity**n / pathlen(n) 
+             * np.exp(-1j * pathlen(n) * (2*np.pi*freq) / soundspeed))
+```
+
+```{python}
+# A little slow. Need to take more modes if the reflectivity is quite high.
+filt = np.sum(response_onemode(*np.meshgrid(freqs, range(18))), axis=0)
+```
+
+```{python}
+plt.plot(freqs, np.abs(filt)**2)
+ax = plt.gca()
+ax.set_xlim([20, None])
+ax.set_ylim([0, None])
+ax.set_xscale('log')
+# ax.set_yscale('log')
+ax.grid()
+```
+
+```{python}
+@interact_manual()
+def room_response_demo():
+    transformed_signal = np.real(myifft(ft * filt))
+
+    plt.plot(
+        freqs, np.abs(ft)**2,
+        freqs, np.abs(ft*filt)**2
+    )
+    ax = plt.gca()
+    ax.set_xlim([20, None])
+    ax.set_ylim([1e-6, None])
+    ax.set_xscale('log')
+    ax.set_yscale('log')
+    ax.grid()
+
+    @interact_manual()
+    def demo_play():
+        sd.play(normalise(wholesignal), SAMPLE_RATE)
+    
+    @interact_manual()
+    def demo_play():
+        sd.play(normalise(transformed_signal), SAMPLE_RATE)
+```
+
+# Just intonation _vs._ equal temperament
+
+
+```{python}
+base = 207
+length = 1
+decay = 5
+ts = np.linspace(0, length, SAMPLE_RATE*length)
+
+
+def jifreq(mode):
+    while mode > 4:
+        mode /= 2
+    return base * mode
+
+
+def eqfreq(mode):
+    while mode > 4:
+        mode /= 2
+    semitones = np.round(12 * np.log(mode) / np.log(2))
+    return base * np.power(2, semitones/12)
+
+ys = np.array(
+    list(chain(*[
+        (np.sin(jifreq(mode) * 2*np.pi * ts) + np.sin(eqfreq(mode) * 2*np.pi * ts)) / 2.2
+        * np.exp(-decay * ts)
+        for mode in range(33)]))
+)
+sd.play(ys, SAMPLE_RATE)
+```
+
