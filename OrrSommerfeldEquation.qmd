@@ -12,7 +12,6 @@ from functools import lru_cache
 import numpy as np
 from numpy import pi
 from numpy import sqrt, sin, cos, tan, sinh, cosh, exp, dot
-# from numpy.linalg import eig, eigh
 from scipy.linalg import eig, eigh, eigvals
 import matplotlib.pyplot as plt
 from ipywidgets import interact, interactive, fixed, interact_manual, Layout
@@ -21,27 +20,13 @@ from differentials import *
 ```
 
 ```{python}
-
-def myeig(op, eye, *args, **kwargs):
-    nx = op.shape[0]
-    eigvals, eigvecs = eig(op, eye, *args, **kwargs)
-    ordering = sorted(range(nx), key=lambda i: np.real(eigvals)[i])
-    eigvals = eigvals[ordering]
-    eigvecs = eigvecs[:, ordering] * sqrt(nx)
-    return eigvals, eigvecs
-```
-
-```{python}
 xa = -1; xb = 1; nx = 201;
 xs, dx, eye, ddx, d2dx2 = discretise(xa, xb, nx, periodic=False)
 d4dx4 = d4dx4_mat(nx, dx)
 
-# Rey = 5772
-# alpha = 1.02
+## Poiseuille flow
 Us = (1-xs**2)
 Upps = -2 + np.zeros(Us.shape)
-# Us = xs
-# Upps = np.zeros(Us.shape)
 
 def augment(mat, pad):
     """Return a padded matrix."""
