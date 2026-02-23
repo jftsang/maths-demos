@@ -1,0 +1,266 @@
+---
+title: Differential operators as matrices
+jupyter: python3
+---
+
+```{python}
+#| scrolled: true
+%pip install numpy scipy matplotlib ipywidgets
+```
+
+
+Differential operators are linear operators on vector fields of functions. They have many similar properties to matrices on finite-dimensional vector spaces. Indeed, if a function $y(x)$ is sampled at discrete points with values $y_n$, then the approximations to $y'$, $y''$ are created by multiplying the vector $(y_n)$ with a difference matrix.
+
+In particular, the eigenvalues and eigenfunctions of an operator can be approximated by looking at the eigenvalues and eigenvectors of the discretised matrix operator. This can be done numerically using methods such as `eig` from the `scipy` package: see [its documentation](https://docs.scipy.org/doc/scipy/reference/generated/scipy.linalg.eig.html) for information about its algorithm. (We are only interested in self-adjoint operators. When discretised, they become Hermitian matrices.) Note that most such algorithms return the eigenvectors as normalised vectors; their actual magnitude when interpreted as functions needs to be scaled by $\sqrt{N}$, where $N$ is the number of gridpoints.
+
+
+```{python}
+import numpy as np
+from numpy import pi
+from numpy import sqrt, sin, cos, tan, sinh, cosh, exp, dot
+# from numpy.linalg import eig, eigh
+from scipy.linalg import eig, eigh
+import matplotlib.pyplot as plt
+from ipywidgets import interact, interactive, fixed, interact_manual
+import ipywidgets as widgets
+from differentials import *
+
+np.set_printoptions(formatter={'float': lambda x: "{0:>8.2f}".format(x)})
+```
+
+## Finite difference matrices
+
+We use a second-order finite difference scheme, with linear spacing. Within the main body of the domain we use a central differences. At the endpoints we use forward and backward differences, which means we need to take more points to get a second-order approximation.
+
+The matrices involve dividing by `dx` and `dx**2`, which are small numbers. This can be problematic for numerical stability.
+
+```{python}
+xa = 0; xb = 1; nx = 51;
+xs, dx, eye, ddx, d2dx2 = discretise(xa, xb, nx, periodic=False)
+
+print(f"{xs = }")
+print(f"{dx = }")
+
+print("\nidentity operator:\n")
+print(eye)
+print("\nd/dx:\n")
+print(ddx)
+print("\nd2/dx2:\n")
+print(d2dx2)
+```
+
+## The harmonic functions
+These are the eigenfunctions of the operator $-D^2$, subject to either Dirichlet or Neumann boundary conditions.
+
+```{python}
+xa = 0; xb = pi; nx = 101;
+xs, dx, eye, ddx, d2dx2 = discretise(xa, xb, nx)
+
+op = -d2dx2; 
+op[0, :] = 0;
+op[-1, :] = 0;
+eye[0, 3:] = 0; eye[0, :3] = (3/2, -2, 1/2) / dx;
+eigvals, eigvecs = myeig(op, eye)
+
+@interact(mode=widgets.IntSlider(min=0, max=20, continuous_update=False))
+def harmfun(mode):
+    # Note: First two modes correspond to the boundary values. 
+    fig, axs = plt.subplots(1, 2, figsize=(14, 4))
+    axs[0].plot(xs, np.real(eigvecs[:, mode+2]) * np.sign(np.real(eigvecs[0, mode+2])))
+    axs[0].set(title=f"E = %.2f" % eigvals[mode+2], 
+                  xlim=[xa, xb], ylim=[-2, 2])
+    axs[0].grid()
+    axs[1].plot(eigvals[2:12], 'kx')
+    axs[1].plot(mode, eigvals[2+mode], 'ko')
+    axs[1].grid()
+```
+
+## The quantum harmonic oscillator
+
+In suitable units, the time-independent Schrodinger equation for the wavefunction in a harmonic potential is 
+$$ -y'' + x^2 y = E y.$$
+The possible energy levels $E$ are the eigenvalues of the operator $-D^2 + x^2$. The operator 'multiply by $x^2$' is represented as a diagonal matrix whose elements are $x_n^2$, where $x_n$ are the gridpoints of the discretisation.
+
+This idea can be generalised to any other potential $V(x)$.
+
+The potential $V(x) = x$ leads to the Airy equation, and is particularly interesting because it occurs at the 'edges' at potential wells where a particle would classically not be able to penetrate the edge. In the quantum case, the wavefunction is able to extend a little bit beyond the boundary, but decays exponentially. The two linearly independent solution to the Airy equation, $Ai$ and $Bi$ (sometimes known as 'Bairy'), have asymptotic properties that can be matched against the oscillatory wavefunction for a free particle.
+
+```{python}
+xa = -20; xb = 20; nx = 501;
+xs, dx, eye, ddx, d2dx2 = discretise(xa, xb, nx)
+d2dx2[0, :] = 0; d2dx2[-1, :] = 0 # impose boundary conditions
+# eigvals, eigvecs = eigh(-d2dx2)
+
+potentials = {
+    'harmonic': lambda x: x ** 2,
+    'symquartic': lambda x: x ** 4 / 64 - x ** 2,
+    'quartic': lambda x: 0.01 * x ** 4 - 0.75 * x ** 2 + x,
+    'Airy': lambda x: x,
+    'sechsq': lambda x: -np.cosh(x/2)**-2,
+    'deltawell': lambda x: np.where(np.abs(x) < 0.1, -50, 0)
+}
+
+nstates = 24
+
+@interact(    potential=potentials.keys())
+def qhoplot(potential):
+    V = potentials[potential]
+    eigvals, eigvecs = eigh(-d2dx2 + np.diag(V(xs)))
+    
+    @interact(mode=widgets.IntSlider(min=0, max=nstates, continuous_update=False))
+    def qho_plot(mode):
+        fig, axs = plt.subplots(1, 2, figsize=(14, 4))
+
+        # TODO what's up with the first mode? 
+        # I think we aren't imposing BCs correctly.
+        axs[0].plot(xs, eigvecs[:, mode])
+        axs[0].set(
+            title=f"n = {mode}, E_n = {eigvals[mode]:.2f}", 
+            xlim=[-20, 20],
+            ylim=[-.26, .26],
+        )
+        axs[0].grid()
+
+        axs[1].plot(xs, V(xs), '-')
+        for m in range(nstates):
+            axs[1].plot(xs, eigvals[m] * np.ones(xs.shape), 
+                        'k--' if m != mode else 'r-')
+#         axs[1].plot(xs, eigvals[mode] * np.ones(xs.shape), 'r-')
+        axs[1].set(ylim=(eigvals[0] - (eigvals[nstates] - eigvals[0]) * 0.1, 
+                         eigvals[nstates] + (eigvals[nstates] - eigvals[0]) * 0.1
+                        ))
+```
+
+## Sheet 1, question 7
+
+$$ y'' + 4y' + 4y = -\lambda y $$
+
+so the operator of interest is $D^2 + 4D + 4I$. Note that this is _not_ a self-adjoint operator, so there is no reason to suspect that its eigenfunctions will be orthogonal under the standard inner product. (They aren't.)
+
+```{python}
+xa = 0; xb = 1; nx = 301;
+xs, dx, eye, ddx, d2dx2 = discretise(xa, xb, nx)
+```
+
+```{python}
+# eigvals, eigvecs = eig(d2dx2 + 4*ddx + 4*eye)
+op = -(d2dx2 + 4*ddx + 4*eye)
+op[0, :] = 0; op[-1, :] = 0
+eigvals, eigvecs = myeig(op, eye)
+# eigvals = -eigvals
+# eigvals, eigvecs = eigh(-d2dx2)
+
+@interact(mode=widgets.IntSlider(min=1, max=12,
+                                 continuous_update=False
+                            ))
+def s1q7_plot_notsl(mode):
+    fig, axs = plt.subplots(1, 2, figsize=(14, 4))
+    mind = mode+1 # first two modes come from imposing BCs, then we count from 1
+    axs[0].plot(xs, 
+             eigvecs[:, mind] * np.sign(eigvecs[2, mind]))
+    axs[0].set(title=f"E = %.2f" % eigvals[mind], 
+                  xlim=[0, 1] )#, ylim=[-3, 3])
+    axs[0].grid()
+    
+    axs[1].plot(eigvals[range(1, 15)], 'kx')
+    axs[1].plot(mode, eigvals[mind], 'ko')
+    axs[1].grid()
+    
+```
+
+We can turn the equation into a self-adjoint equation by multiplying through by the integrating factor $p(x) = \exp(4x)$, to get
+
+$$ (py')' + 4py = -\lambda py. $$
+
+As a matrix equation, this becomes
+
+$$ 
+(DPD + 4P)y = -\lambda Py,
+$$
+a generalised eigenvector problem. As in the QHO example, $P$ is a diagonal matrix whose elements are $p(x_n) = \exp(4x_n)$, representing multiplication by $p(x)$. So, recasting in Sturm-Liouville form is akin to diagonalising a matrix. Note that $P$ and $D$ do not commute.
+
+```{python}
+p_mat = np.diag(exp(4*xs))
+eigvals, eigvecs = eigh(ddx @ p_mat @ ddx + 4 * p_mat, p_mat)
+eigvals = -eigvals
+```
+
+```{python}
+@interact(mode=widgets.IntSlider(min=0, max=12))
+def s1q7_plot_sl(mode):
+    # TODO what's up with the first mode? 
+    # I think we aren't imposing BCs correctly.
+    plt.plot(xs[0::4], eigvecs[0::4, 2*mode+2] * sqrt(nx) * np.sign(eigvecs[4, 2*mode+2]))
+    plt.gca().set(title=f"E = %.2f" % eigvals[-2*mode-4], 
+                  xlim=[0, 1], ylim=[-1, 1])
+    plt.gca().grid()
+#     plt.plot(eigvals[:mode], 'x')
+```
+
+## Sheet 1, question 8: Bessel functions
+
+```{python}
+xa = 0; xb = 10; nx = 101;
+xs, dx, eye, ddx, d2dx2 = discretise(xa, xb, nx)
+
+x_mat = np.diag(xs)
+bessel_operator = -dot(x_mat, d2dx2) - ddx
+bessel_operator[0, :] = 0
+bessel_operator[-1, :] = 0
+eye = x_mat;
+eye[0, :2] = (-1, 1)
+eye[-1, -1] = 1
+
+eigvals, eigvecs = myeig(bessel_operator, eye)
+# eigvals = -eigvals
+# eigvals, eigvecs = eigh(-d2dx2)
+
+@interact(mode=widgets.IntSlider(min=0, max=12))
+def s1q8_plot_notsl(mode):
+    # TODO what's up with the first mode? 
+    # I think we aren't imposing BCs correctly.
+    plt.plot(xs, eigvecs[:, mode+2] / eigvecs[0, mode+2])
+    plt.gca().set(title=f"E = %.2f" % eigvals[mode+2], 
+                  xlim=[xa, xb], ylim=[-1.1, 1.1])
+    plt.gca().grid()
+#     plt.plot(eigvals[:mode], 'x')
+```
+
+## Sheet 1, question 9: Higher-order self-adjoint form
+
+The differential operator of interest here is simply $D^4$. 
+
+```{python}
+xa = 0.0; xb = 1; nx = 257;
+xs, dx, eye, ddx, d2dx2 = discretise(xa, xb, nx)
+# d2dx2[0, :] = 0; d2dx2[-1, :] = 0
+op = d4dx4_mat(nx, dx=1)#, periodic=True)
+op[0, :] = 0
+op[1, :] = 0
+op[-2, :] = 0
+op[-1, :] = 0
+
+eigvals, eigvecs = myeig(op, eye)
+
+@interact(mode=widgets.IntSlider(min=1, max=12, continuous_update=False))
+def s1q9_plot_sl(mode):
+    mind = mode + 3
+    fig, axs = plt.subplots(1, 2, figsize=[14, 4])
+    axs[0].plot(xs, eigvecs[:, mind] * sqrt(nx) * np.sign(eigvecs[128, mind]))
+    axs[0].set(title=f"lambda = %.2f" % eigvals[mind], 
+                  xlim=[0, 1])#, ylim=[-6, 6])
+    axs[0].grid()
+    axs[1].plot(range(1,18), eigvals[3:20] ** (1/4), 'kx')
+    axs[1].set_xlabel('n')
+    axs[1].set_ylabel('lambda_n ^ (1/4)')
+    axs[1].grid()
+    axs[1].set_title('lambda_n = O(n^4)')
+    
+
+#     plt.plot(eigvals[:mode], 'x')
+```
+
+```{python}
+plt.plot(np.real(eigvals))
+```
+
