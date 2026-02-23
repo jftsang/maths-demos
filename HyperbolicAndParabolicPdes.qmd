@@ -1,0 +1,152 @@
+---
+title: Hyperbolic and parabolic PDEs
+jupyter: python3
+---
+
+
+
+```{python}
+import numpy as np
+from numpy import pi
+from numpy import sqrt, sin, cos, tan, sinh, cosh, exp, dot
+from scipy.linalg import eig, eigh
+from scipy.integrate import odeint
+import matplotlib.pyplot as plt
+from ipywidgets import interact, interactive, fixed, interact_manual
+import ipywidgets as widgets
+from differentials import *
+```
+
+## The heat equation
+
+```{python}
+#| scrolled: true
+def fun(ys, t):
+    dysdt = d2dx2 @ ys
+    # Dirichlet boundary conditions
+    dysdt[0] = 0
+    dysdt[-1] = 0
+    return dysdt
+
+xmax = 1
+xs, dx, eye, ddx, d2dx2 = discretise(0, 1, 101)
+ts = np.linspace(0, 1, 501)
+dt = ts[1] - ts[0]
+
+y0s = np.zeros(xs.shape)
+y0s[25] = 1/dx
+
+sol = odeint(fun, y0s, ts)
+
+@interact(timestep=widgets.IntSlider(min=0, max=200, continuous_update=False))
+def heateqn(timestep):
+    fig, axs = plt.subplots(1, 2, figsize=(14, 4))
+    axs[0].plot(xs, sol[timestep, :])
+    axs[0].set(ylim=[0, 1])
+    axs[0].grid()
+    axs[0].set_title('t = %.2f' % ts[timestep])
+    
+    axs[1].plot(np.transpose(np.repeat([xs], [49], 0)), 
+                np.transpose(sol[5:-6:10, :]))
+```
+
+## An ill-posed problem: the backwards heat equation
+
+Jacques Hadamard's 1902 paper _Sur les problèmes aux dérivées partielles et leur signification physique_ ([available online](https://it.b-ok.org/book/3335545/2a0afd), a short read in French) is usually cited as the original description of **well-posedness** or **ill-posedness**.
+
+Well- or ill-posedness can be understood in terms of **continuity of an operator**, in the following sense. Suppose $T(x,t)$ satisfies some linear time-evolution equation, such as the heat equation, with initial conditions $T(x,0) = f(x)$. We shall write $T(x,t) = [(H^t)f](x)$, where the operator $H^t$ means 'evolve the system over a time $t$'; note that it is a linear operator. (We write $t$ as a superscript, as there are properties such as $H^{t_2} H^{t_1} = H^{t_1 + t_2}$.) Say that the operator $H^t$ is continuous (and therefore the solution is well-posed) if for any sequence of functions $f_1, f_2, \dots $ with $f_i \rightarrow f$ (in a 'suitable' norm), $H^t f_i \rightarrow H^t f$. 
+
+(Note that in an infinite-dimensional space, linear operators do not necessarily have to be continuous.)
+
+By looking at the Fourier series solutions for the heat equation, it can be seen that the time-march operator $H^t$ is continuous for $t \geq 0$, but discontinuous for $t < 0$: since the amplitudes of modes are multiplied by $\exp(-n^2 t)$, the highest modes $n\rightarrow\infty$ are very large for $t < 0$. Thus, even a slight amount of 'error' in the initial conditions lead to a so-called 'ultraviolet catastrophe', where short-wavelength modes grow unboundedly; the solution itself ceases to be continuous. Ill-posed problems are bad models for physical processes. (The backwards heat equation would imply the increasing concentration of heat at particular locations, in violation of the Second Law.)
+
+Numerical solutions of ill-posed equations are almost certainly guaranteed to fail, since numerical methods depend on discretising the domain and assuming that the errors introduced by discretisation are bounded and can be reduced as finer and finer meshes are taken. However, well-posed problems can also be resistant to numerical methods if they are **ill-conditioned** (see [Wikipedia](https://en.wikipedia.org/wiki/Condition_number)). Examples include **stiff equations** governed by multiple timescales, one much smaller than the other.
+
+## The wave equation
+
+```{python}
+from mpl_toolkits.mplot3d import Axes3D
+# fig = plt.figure()
+# ax = fig.add_subplot(111, projection='3d')
+
+xs, dx, eye, ddx, d2dx2 = discretise(-15, 15)
+
+def fun(ys2, t):
+    ys = ys2[:len(xs)]
+    dysdt = ys2[len(xs):]
+    d2ysdt2 = d2dx2 @ ys
+    # Dirichlet boundary conditions
+    dysdt[0] = 0
+    dysdt[-1] = 0
+    d2ysdt2[0] = 0
+    d2ysdt2[-1] = 0
+    
+    return np.concatenate((dysdt, d2ysdt2))
+
+y0s2 = np.zeros(2*len(xs))
+y0s2[:len(xs)] = np.exp(-xs**2/5)
+
+ts = np.linspace(0, 100, 201)
+
+sol = odeint(fun, 
+          y0s2,
+          ts)
+
+@interact(timestep=widgets.IntSlider(min=0, max=200, continuous_update=False))
+def waveeqn(timestep):
+    fig = plt.figure(figsize=(14,4))
+#     fig, axs = plt.subplots(1, 2, figsize=(14, 4))
+    axs = fig.add_subplot(121)
+    axs.plot(xs, sol[timestep, :len(xs)])
+    axs.set(ylim=[-1.1, 1.1])
+    axs.grid()
+#     axs = fig.add_subplot(122, projection='3d')
+#     axs.plot_surface(xs, ts, sol[:, :len(xs)])
+#     axs[1].plot(np.transpose(np.repeat([xs], [10], 0)), 
+#                 np.transpose(sol[10:-1:20, :]))
+```
+
+## Bonus: Burgers' equation
+
+***Burgers' equation*** is the nonlinear equation
+$$ u_t + u u_x = \nu u_{xx}, $$
+and appears in fluid dynamics and nonlinear acoustics. 
+
+The left hand side of Burgers' equation should be reminiscent of the linear first-order wave equation, $u_t + c u_x = 0$, describing a wave travelling with constant speed $c$. However, in Burgers' equation, the 'wave speed' is the variable $u$: regions where the solution is greater travel faster. This leads to a much richer set of possible behaviours, including the phenomenon of _nonlinear amplification_. The right hand side has the diffusion term $u_t = \nu u_{xx}$ (with $\nu > 0$), which tends to dampen out the solution towards a constant in the long run. (Exercise: Assuming that $u\rightarrow0$ as $x\rightarrow\pm\infty$, show that $||u||_2 \rightarrow 0$ as $t \rightarrow \infty$, and express the characteristic timescale of this decay in terms of $\nu$. Then generalise to finite domains with periodic but nonzero boundary conditions.) 
+
+The ***inviscid Burgers' equation*** is the equation with $\nu = 0$. Just like the linear wave equation, he inviscid Burgers' equation can be solved using the method of characteristics: for a characteristic curve $x = X(t)$, it can be shown that $u(X(t), t) = u(X(0), 0)$ is constant along the curve provided that $X'(t) = u$ (exercise). Since the wave speed is not constant, it is possible (depending on the initial conditions) for two characteristics to collide, forming a **shock**. The system thereafter is ill-posed.
+
+Shock formation is often an indication that an aspect of the system's physics has been neglected as part of the modelling, but became important under certain conditions. In this case, while the diffusion term is initially $O(\nu)$ and is small compared to the $O(1)$ terms on the left, the nonlinear amplification process sharpens the function $u$ and eventually develops features over lengthscales $O(\nu^{1/2})$, at which point $\nu u_{xx} = O(1)$ and can no longer be neglected.
+
+In the following demo, with the initial conditions $u(x, 0) = 0.5 * \exp\left[-\left((x - 0.5)/0.1\right) ^ 2\right]$, the shock forms around $t = 0.1$. The numerical solutions become very badly-behaved, and no increase in either the temporal or spatial resolution can improve this, since the equation itself is ill-posed.
+
+```{python}
+xs, dx, eye, ddx, d2dx2 = discretise(0, 1, 201)
+ts = np.linspace(0, 1, 201)
+dt = ts[1] - ts[0]
+
+y0s = 0.5 * np.exp(-((xs-0.5)/0.1)**2)
+```
+
+```{python}
+@interact(
+    nu=widgets.FloatSlider(value=0.005, min=0, max=0.02, step=0.005, continuous_update=False))
+def heateqn_demo(nu):
+    def fun(ys, t):
+        dysdt = - ys * ddx @ ys + nu* d2dx2 @ ys
+        return dysdt
+
+    sol = odeint(fun, y0s, ts)    
+    
+    @interact(timestep=widgets.IntSlider(min=0, max=100, continuous_update=False))
+    def heateqn_demo_plot(timestep):
+        fig, axs = plt.subplots(1, 2, figsize=(14, 4))
+        axs[0].plot(xs, sol[timestep, :])
+        axs[0].set(ylim=[0, 1.1])
+        axs[0].grid()
+        axs[0].set_title('t = %.2f' % ts[timestep])
+
+        axs[1].plot(np.transpose(np.repeat([xs], [19], 0)), 
+                    np.transpose(sol[5:-6:10, :]))
+```
+
