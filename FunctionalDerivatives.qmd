@@ -3,21 +3,34 @@ title: Gradient descent and functional derivatives
 jupyter: python3
 ---
 
-Consider the function $f(x)$ for $x \in \mathbb{R}^n$. Stationary points of $f$ are found at points where $\nabla f(x) = 0$. The **method of gradient descent** can be used to find (approximations to) minima of $f$.
+Consider the function $f(x)$ for $x \in \mathbb{R}^n$. Stationary points
+of $f$ are found at points where $\nabla f(x) = 0$. The **method of
+gradient descent** can be used to find (approximations to) minima of
+$f$.
 
-The Taylor expansion says that when the argument to $f$ is perturbed by a small amount, then the response of $f$ is linearly proportional to the perturbation, plus higher-order effects:
+The Taylor expansion says that when the argument to $f$ is perturbed by
+a small amount, then the response of $f$ is linearly proportional to the
+perturbation, plus higher-order effects:
 $$ f(x + \delta x) = f(x) + \delta x \cdot \nabla f(x) + o(|\delta x|). $$
-Given an initial guess $x_0$, we construct a sequence of approximations $x_n$ by taking
+Given an initial guess $x_0$, we construct a sequence of approximations
+$x_n$ by taking
 $$
 x_{n+1} = x_n - \gamma \nabla f(x_n),
 $$
-where $\gamma > 0$ is a rate of descent, typically small. Each approximation reduces $f$, because
+where $\gamma > 0$ is a rate of descent, typically small. Each
+approximation reduces $f$, because
 \begin{align}
 f(x_{n+1}) &= f(x_n - \gamma \nabla f(x_n)) \\
            &\sim f(x_n) - \gamma \nabla f(x_n) \cdot \nabla f(x_n) \\
            &\leq f(x_n).
 \end{align}
-The rate of convergence and the stability of this method depend on both the rate of descent, and on the magnitude of the higher-order terms (usually second-order). Note that convergence towards the _global_ minimum (or indeed any particular minimum) is not guaranteed, and more sophisticated methods such as the [method of _stochastic_ gradient descent](https://en.wikipedia.org/wiki/Stochastic_gradient_descent) are needed to treat such functions.
+The rate of convergence and the stability of this method depend on both
+the rate of descent, and on the magnitude of the higher-order terms
+(usually second-order). Note that convergence towards the _global_
+minimum (or indeed any particular minimum) is not guaranteed, and more
+sophisticated methods such as the [method of _stochastic_ gradient
+descent](https://en.wikipedia.org/wiki/Stochastic_gradient_descent) are
+needed to treat such functions.
 
 
 ```{python}
@@ -77,7 +90,10 @@ axs[1].set_ylim([-1.1, 2])
 plt.show()
 ```
 
-We can do something similar when trying to minimise a _functional_. The idea here is that the first variation of a functional is like the gradient operation, and the key is to make perturbations in the opposite direction of the gradient.
+We can do something similar when trying to minimise a _functional_. The
+idea here is that the first variation of a functional is like the
+gradient operation, and the key is to make perturbations in the opposite
+direction of the gradient.
 
 Consider
 $$ F[y] = \int_a^b f(x, y, y') \mathrm{d}x. $$
@@ -99,9 +115,18 @@ y_{n+1}(x) &= y_n(x) - \frac{\delta F}{\delta y} \\
 \end{align}
 Each of these approximations will reduce $F[y]$. 
 
-This time, we need to discretise our interval into $n$ points and then approximate $y(x)$ as an $n$-dimensional vector. However, the concept is otherwise the same. While it may be tempting to take very large $n$, the discretisation is unstable if the rate of descent is too large compared to the spatial step size.
+This time, we need to discretise our interval into $n$ points and then
+approximate $y(x)$ as an $n$-dimensional vector. However, the concept is
+otherwise the same. While it may be tempting to take very large $n$, the
+discretisation is unstable if the rate of descent is too large compared
+to the spatial step size.
 
-Instead of our own implementation of gradient descent, we'll use the `scipy.optimize.minimize` function, which uses more sophisticated algorithms. See [the documentation](https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html#scipy.optimize.minimize) for more information. But the idea is the same.
+Instead of our own implementation of gradient descent, we'll use the
+`scipy.optimize.minimize` function, which uses more sophisticated
+algorithms. See [the documentation][scipy.optimize.minimize]
+for more information. But the idea is the same.
+
+[scipy.optimize.minimize]: https://docs.scipy.org/doc/scipy/reference/generated/scipy.optimize.minimize.html#scipy.optimize.minimize
 
 ```{python}
 from scipy.optimize import minimize
@@ -122,7 +147,9 @@ def ddx(ys, dx=1, order=1):
 
 ## Variational Principles, Sheet 1, question 5: The soap film
 
-With a little dimensional analysis, it can be seen that the solution depends on the dimensionless ratio $a/b$. In this demo, we keep $b=1$ fixed and vary $a$. What happens if $a$ is reduced below 1.6?
+With a little dimensional analysis, it can be seen that the solution
+depends on the dimensionless ratio $a/b$. In this demo, we keep $b=1$
+fixed and vary $a$. What happens if $a$ is reduced below 1.6?
 
 ```{python}
 @interact(width=widgets.FloatSlider(min=1.4, max=4, value=1.7, 
@@ -151,7 +178,16 @@ def soap_film(width):
 ```
 
 ## Variational Principles, Sheet 1, question 11: Higher derivatives
-The idea is exactly the same idea. Don't get confused - this is still looking at the _first_ variation.
+
+
+
+$$
+F[y] = \int_1^2 x^4 (y'')^2 \mathrm{d}x
+$$
+
+This is exactly the same idea. Note, we are still looking at the *first*
+variation of the *functional* $F$, even though it depends on the
+second-order derivative of its argument function $y$.
 
 ```{python}
 # @interact(width=widgets.FloatSlider(min=1.4, max=4, value=1.7, 
@@ -183,10 +219,8 @@ xs, res = s1q11_demo()
 ```
 
 ```{python}
-#     breakpoint()
 fig, axs = plt.subplots(1, 1, figsize=[6, 8])
 axs.plot(xs, res.x, 'k-')
-#     axs.set_aspect('equal', adjustable='box')
 axs.set_xlim([0.9, 2.1])
 axs.grid()
 ```
