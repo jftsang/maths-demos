@@ -5,15 +5,18 @@ QMD := $(wildcard *.qmd)
 IPYNB := $(QMD:%.qmd=build/%.ipynb)
 VENV := .venv
 
-notebooks: $(IPYNB)
+all: notebooks
+
+notebooks:
+	mkdir -p build
 	cp *.py build/
-	cp *.ipynb build/
+	quarto render
 	cp requirements.txt build/
 	cp README.md build/
 
 build/%.ipynb: %.qmd
 	mkdir -p build
-	quarto convert $< -o $@
+	quarto render $<
 
 clean:
 	rm -rf build
