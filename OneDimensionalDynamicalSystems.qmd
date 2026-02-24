@@ -3,8 +3,6 @@ title: One-dimensional dynamical systems
 jupyter: python3
 ---
 
-
-
 ```{python}
 import matplotlib.pyplot as plt
 import numpy as np
@@ -17,6 +15,10 @@ import ipywidgets as widgets
 
 ## Insect population with harvesting (Mathematical Biology Sheet 1 Question 1)
 
+$$
+\frac{\mathrm{d}n}{\mathrm{d}t} = n(1-n) - \frac{\beta n}{\alpha + n}
+$$
+
 ```{python}
 def insects(t, y, alpha, beta):
     return y * (1 - y) - beta * y / (alpha + y)
@@ -27,19 +29,25 @@ def insects(t, y, alpha, beta):
           beta=widgets.FloatSlider(min=0, max=2, value=0.28, step=0.02, continuous_update=False))
 def insects_demo(alpha, beta):
     tf = 15
-    
+
     initial_states = np.arange(0, 1.25, 0.025)
     sols = [solve_ivp(insects, (0, tf), [i], args=(alpha, beta)) for i in initial_states]
-    
+
     fig, axs = plt.subplots(2, figsize=(12, 6))
+
     axs[0].plot(initial_states, insects(0, initial_states, alpha, beta))
-    axs[0].set_ylim((-.5, .5))
+    axs[0].set_ylim((-.2, .2))
     axs[0].grid()
-    axs[0].set_title('$\dot{n}$')
+    axs[0].set_title(r'$\frac{\mathrm{d}n}{\mathrm{d}t}$ against $n$')
+    axs[0].set_xlabel(r'$n$')
+    axs[0].set_ylabel(r'$\frac{\mathrm{d}n}{\mathrm{d}t}$')
+
     for sol in sols:
         assert sol.success, sol.message
-        axs[1].plot(sol.t, sol.y[0, :], 'gray')
+        axs[1].plot(sol.t, sol.y[0, :], c='gray')
+
     axs[1].grid()
+    axs[1].set_xlabel(r'$t$')
+    axs[1].set_ylabel(r'$n(t)$')
     plt.show()
 ```
-
