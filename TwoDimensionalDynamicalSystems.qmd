@@ -332,8 +332,8 @@ def plankton_demo(eps, b, c):
     plt.plot(separatrix.y[0, :], separatrix.y[1, :], 'g-', label='separatrix')
 
     xs = np.linspace(*x_range, 101)[1:]
-    plt.plot(xs, b * (1 - xs) * (eps**2 + xs**2) / xs, c='k', ls='--', label='$\dot{x} = 0$')
-    plt.plot([eps / (c - 1)**0.5] * len(ys), ys, c='k', ls='-.', label='$\dot{y} = 0$')
+    plt.plot(xs, b * (1 - xs) * (eps**2 + xs**2) / xs, c='k', ls='--', label=r'$\dot{x} = 0$')
+    plt.plot([eps / (c - 1)**0.5] * len(ys), ys, c='k', ls='-.', label=r'$\dot{y} = 0$')
 
     ax = plt.gca()
     ax.set_xlim(x_range)
