@@ -1,0 +1,54 @@
+---
+title: Korteweg-de Vries equation
+jupyter: python3
+---
+
+
+The KdV equation is an example of an “integrable system”: a nonlinear
+partial differential equation for which expressions for general exact
+solutions can be found.
+
+We use the convention
+
+$$
+u_t - 6 u u_x + u_{xxx} = 0.
+$$
+
+The coefficients as written are conventional, but they can be made to be
+any values by taking appropriate rescalings of $u$, $t$ and $x$.
+
+The KdV equation models waves in [shallow
+water](https://en.wikipedia.org/wiki/Shallow_water_equations) subject to
+a nonlinear restoring force.
+
+
+```{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from scipy.integrate import solve_ivp
+
+from differentials import discretise, d3dx3_mat
+```
+
+```{python}
+xs, dx, eye, ddx, d2dx2 = discretise(0, 1, nx=1001, periodic=True)
+d3dx3 = d3dx3_mat(1001, dx, periodic=True)
+```
+
+```{python}
+u0 = -np.sin(np.pi*xs)
+plt.plot(xs, u0)
+```
+
+```{python}
+def kdv(_, u):
+    return 6 * u * ddx @ u - d3dx3 @ u
+```
+
+```{python}
+ts = np.linspace(0, 10, 1001)
+
+sol = solve_ivp(kdv, (0, 10), u0, t_eval=ts)
+```
+
+
