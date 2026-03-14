@@ -1,0 +1,67 @@
+---
+title: Delay differential equations
+jupyter: python3
+---
+
+
+
+```{python}
+%pip install ddeint
+```
+
+```{python}
+import numpy as np
+import matplotlib.pyplot as plt
+from ddeint import ddeint
+from scipy.special import lambertw
+```
+
+```{python}
+r = 1.4
+eps = 0.2
+
+
+def values_before_zero(t):
+    return 1 + eps
+
+def model(X, t):
+    return r * X(t) * (1 - X(t - 1))
+
+tt = np.linspace(0, 30, 2000)
+yy = ddeint(model, values_before_zero, tt)
+
+s = lambertw(-r)
+
+fig, axs = plt.subplots(2, 1, figsize=(12, 4))
+ax = axs[0]
+ax.plot(tt, yy)
+ax.plot(tt, 1 + eps * np.exp(s * tt), 'r--')
+ax.hlines([1], tt.min(), tt.max(), colors='k', ls='--')
+ax.set_xlim(0, None)
+
+ax = axs[1]
+ax.plot(tt, 1 + eps * np.exp(s * tt).real - yy[:, 0], 'r-')
+ax.hlines([-eps, -eps**2, eps**2, eps], tt.min(), tt.max(), colors='k', ls='--')
+ax.set_xlim(0, None)
+ax.grid()
+
+# ax.set_ylim(-0.05, 5.05)
+```
+
+```{python}
+#| scrolled: true
+rr = np.linspace(0, 3.0, 101)
+for branch in range(-1, 1):
+    ss = s = lambertw(-rr, branch)
+    plt.scatter(ss.real, ss.imag, c=rr, cmap='plasma')
+
+plt.colorbar()
+# plt.plot(rr, ss.imag)
+plt.grid()
+```
+
+```{python}
+s.real
+```
+
+
