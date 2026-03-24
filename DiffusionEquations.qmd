@@ -138,13 +138,11 @@ def diffusion_spread(t):
 
 ## Bistable system
 
-The equation
-$$
+The equation $$
 y_t = y_{xx} - y(y-r)(y-1)
-$$
-with a parameter $0 < r < 1$ is an example of a bistable system. In the
-absence of the diffusion term $y_{xx}$, the states $y=0$ and $y=1$ are
-stable and the intermediate state $y=r$ is an unstable equilibrium.
+$$ with a parameter $0 < r < 1$ is an example of a bistable system. In
+the absence of the diffusion term $y_{xx}$, the states $y=0$ and $y=1$
+are stable and the intermediate state $y=r$ is an unstable equilibrium.
 
 When spatial variation and diffusion are turned back on, the "frontiers"
 between regions of $y=0$ and regions of $y=1$ smooths out and moves,
@@ -159,20 +157,19 @@ out.
 
 
 ```{python}
-r = 0.25
-h0 = 0.2
-w0 = 2
-tmax = 20
+r = 0.35
+h0 = 0.8
+w0 = 5
 
-xs, dx, eye, ddx, d2dx2 = discretise(-50, 50, nx=201, periodic=False)
+tmax = 100
+
+xs, dx, eye, ddx, d2dx2 = discretise(-25, 25, nx=201, periodic=True)
 
 y0s = 0.5 * h0 * (np.tanh((xs+w0/2)/0.2) - np.tanh((xs-w0/2)/0.2))
 
 def dydt(t, ys):
     yxx = d2dx2 @ ys
     yt = yxx  - ys * (ys - r) * (ys - 1)
-    yt[0] = 0
-    yt[-1] = 0
     return yt
 
 sol = solve_ivp(dydt, (0, tmax), y0s, method='RK45')
@@ -184,26 +181,22 @@ ysol = interp1d(sol.t, sol.y)
 ```
 
 ```{python}
-fig, ax = plt.subplots()
-for t in np.linspace(0, tmax, 10):
-    ax.plot(xs, ysol(t), c = cm.viridis(t/tmax))
+fig, axs = plt.subplots(2, 1, figsize=(12, 6))
+
+ax = axs[0]
+for t in np.linspace(0, tmax, 20):
+    ax.plot(xs, ysol(t), c = cm.viridis(t/tmax), label=f'{t = :.2f}')
 ax.hlines([0, r, 1], xs[0], xs[-1], color='k', ls='--')
-ax.set_ylim([-0.2, 1.2])
+ax.set_xlabel('x')
+ax.set_ylabel('y(x, t)')
+ax.set_xlim(xs[0], xs[-1])
+ax.set_ylim([-0.05, None])
+# ax.legend()
+
+ax = axs[1]
+ax.plot(sol.t, np.sum(sol.y, axis=0) * dx)
+ax.set_xlabel('t')
+ax.set_ylabel(r'$\int y dx$')
+
 plt.show()
 ```
-
-```{python}
-@interact(t=widgets.FloatSlider(min=sol.t[0], max=sol.t[-1], continuous_update=False))
-def diffusion_spread(t):
-    fig, ax = plt.subplots()
-
-    ax.plot(xs, ysol(t), 'r-')
-    # ax.set_ylim([0, np.max(sol.y) + 0.1])
-    ax.hlines([0, r, 1], xs[0], xs[-1], color='k', ls='--')
-    ax.set_ylim([-0.2, 1.2])
-    plt.show()
-```
-
-
-
-
