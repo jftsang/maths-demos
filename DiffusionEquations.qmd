@@ -150,15 +150,23 @@ When spatial variation and diffusion are turned back on, the "frontiers"
 between regions of $y=0$ and regions of $y=1$ smooths out and moves,
 eventually forming self-similar travelling waves.
 
+In the following demo, we start with an approximately rectangular
+profile, with $y = h_0$ in a region of width $w_0$ and $y = 0$ outside.
+This models a "colony-forming" behaviour, where a population is
+introduced to a localised region. Depending on the relative sizes of
+$h_0$, $w_0$ and $r$, the colony either survives and spreads, or dies
+out.
+
 
 ```{python}
 r = 0.25
 h0 = 0.2
+w0 = 2
 tmax = 20
 
 xs, dx, eye, ddx, d2dx2 = discretise(-50, 50, nx=201, periodic=False)
 
-y0s = 0.5 * h0 * (np.tanh((xs+1)/0.2) - np.tanh((xs-1)/0.2))
+y0s = 0.5 * h0 * (np.tanh((xs+w0/2)/0.2) - np.tanh((xs-w0/2)/0.2))
 
 def dydt(t, ys):
     yxx = d2dx2 @ ys
