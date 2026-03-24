@@ -138,6 +138,18 @@ def diffusion_spread(t):
 
 ## Bistable system
 
+The equation
+$$
+y_t = y_{xx} - y(y-r)(y-1)
+$$
+with a parameter $0 < r < 1$ is an example of a bistable system. In the
+absence of the diffusion term $y_{xx}$, the states $y=0$ and $y=1$ are
+stable and the intermediate state $y=r$ is an unstable equilibrium.
+
+When spatial variation and diffusion are turned back on, the "frontiers"
+between regions of $y=0$ and regions of $y=1$ smooths out and moves,
+eventually forming self-similar travelling waves.
+
 
 ```{python}
 r = 0.25
