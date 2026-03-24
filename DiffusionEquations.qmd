@@ -141,8 +141,8 @@ def diffusion_spread(t):
 
 ```{python}
 r = 0.25
-h0 = 0.5
-tmax = 200
+h0 = 0.2
+tmax = 20
 
 xs, dx, eye, ddx, d2dx2 = discretise(-50, 50, nx=201, periodic=False)
 
@@ -150,7 +150,7 @@ y0s = 0.5 * h0 * (np.tanh((xs+1)/0.2) - np.tanh((xs-1)/0.2))
 
 def dydt(t, ys):
     yxx = d2dx2 @ ys
-    yt = yxx  - ys * (ys) * (ys - 1)
+    yt = yxx  - ys * (ys - r) * (ys - 1)
     yt[0] = 0
     yt[-1] = 0
     return yt
@@ -166,9 +166,9 @@ ysol = interp1d(sol.t, sol.y)
 ```{python}
 fig, ax = plt.subplots()
 for t in np.linspace(0, tmax, 10):
-    ax.plot(xs, ysol(t), c = cm.hot(t/tmax))
+    ax.plot(xs, ysol(t), c = cm.viridis(t/tmax))
 ax.hlines([0, r, 1], xs[0], xs[-1], color='k', ls='--')
-ax.set_ylim([-0.5, 1.5])
+ax.set_ylim([-0.2, 1.2])
 plt.show()
 ```
 
@@ -180,7 +180,7 @@ def diffusion_spread(t):
     ax.plot(xs, ysol(t), 'r-')
     # ax.set_ylim([0, np.max(sol.y) + 0.1])
     ax.hlines([0, r, 1], xs[0], xs[-1], color='k', ls='--')
-    ax.set_ylim([-0.5, 1.5])
+    ax.set_ylim([-0.2, 1.2])
     plt.show()
 ```
 
