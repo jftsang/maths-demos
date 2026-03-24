@@ -139,18 +139,20 @@ def diffusion_spread(t):
 
 
 ```{python}
-#| scrolled: true
 r = 0.25
 
-xs, dx, eye, ddx, d2dx2 = discretise(-2, 2, nx=101, periodic=False)
+xs, dx, eye, ddx, d2dx2 = discretise(-4, 4, nx=31, periodic=False)
 
 y0s = (1 - np.tanh(xs)) * 0.5
 
 def dydt(t, ys):
     yxx = d2dx2 @ ys
-    return yxx**2 - ys * (ys - r) * (ys - 1)
+    yt = yxx**2 - ys * (ys) * (ys - 1)
+    yt[0] = 0
+    yt[-1] = 0
+    return yt
 
-sol = solve_ivp(dydt, (0, 10), y0s)
+sol = solve_ivp(dydt, (0, 0.4), y0s)
 assert sol.success, sol.message
 ```
 
@@ -160,17 +162,19 @@ ysol = interp1d(sol.t, sol.y)
 ```
 
 ```{python}
-@interact(t=widgets.FloatSlider(min=sol.t[0], max=sol.t[-1], continuous_update=False))
+@interact(t=widgets.FloatSlider(min=sol.t[0], max=sol.t[-1], step=0.01, continuous_update=False))
 def diffusion_spread(t):
-    fig, axs = plt.subplots()
+    fig, ax = plt.subplots()
 
-    plt.plot(xs, ysol(t))
-    axs.set_ylim([0, np.max(sol.y) + 0.1])
+    ax.plot(xs, ysol(t), 'r-')
+    # ax.set_ylim([0, np.max(sol.y) + 0.1])
+    ax.hlines([0, r, 1], -4, 4, color='k', ls='--')
+    ax.set_ylim([-0.5, 1.5])
     plt.show()
 ```
 
 ```{python}
-plt.plot(xs, sol.y[:, 10])
+plt.plot(xs, sol.y[:, -1])
 ```
 
 
