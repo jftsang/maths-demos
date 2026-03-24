@@ -147,7 +147,7 @@ y0s = (1 - np.tanh(xs)) * 0.5
 
 def dydt(t, ys):
     yxx = d2dx2 @ ys
-    yt = yxx**2 - ys * (ys) * (ys - 1)
+    yt = yxx - ys * (ys) * (ys - 1)
     yt[0] = 0
     yt[-1] = 0
     return yt
