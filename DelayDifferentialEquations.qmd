@@ -13,13 +13,25 @@ jupyter: python3
 import numpy as np
 import matplotlib.pyplot as plt
 from ddeint import ddeint
+from scipy.optimize import root_scalar
 from scipy.special import lambertw
 ```
+
+This example concerns the delayed logistic equation
+$$
+\dot{x}(t) = r x(t) \left[1 - x(t-1)\right]
+$$
+with the initial condition $x(t) = 1 + \epsilon$ for $t \leq 0$.
+
+The state $x = 1$ is a steady state. Linear perturbations are of the form $e^{st}$ where $s$ solves the equation
+$$
+s e^{s} = -r
+$$
+The linearisation gives an approximation that is out of phase with the true solution, because it does not account for the fact that $x(t)$ is held constant for $t < 0$.
 
 ```{python}
 r = 1.4
 eps = 0.2
-
 
 def values_before_zero(t):
     return 1 + eps
@@ -34,34 +46,51 @@ s = lambertw(-r)
 
 fig, axs = plt.subplots(2, 1, figsize=(12, 4))
 ax = axs[0]
-ax.plot(tt, yy)
-ax.plot(tt, 1 + eps * np.exp(s * tt), 'r--')
-ax.hlines([1], tt.min(), tt.max(), colors='k', ls='--')
+ax.plot(tt, yy, 'k', label='solution')
+ax.plot(tt, (1 + eps * np.exp(s * tt)).real, 'b--', label='linearisation')
+ax.hlines([1], tt.min(), tt.max(), colors='gray', ls='--')
+ax.legend(loc='upper right')
 ax.set_xlim(0, None)
 
 ax = axs[1]
-ax.plot(tt, 1 + eps * np.exp(s * tt).real - yy[:, 0], 'r-')
-ax.hlines([-eps, -eps**2, eps**2, eps], tt.min(), tt.max(), colors='k', ls='--')
+ax.plot(tt, 1 + eps * np.exp(s * tt).real - yy[:, 0], 'r-', label='difference')
+ax.hlines([-eps, eps], tt.min(), tt.max(), colors='gray', ls='--', label=r'$\epsilon$')
+ax.hlines([-eps**2, eps**2], tt.min(), tt.max(), colors='gray', ls=':', label=r'$\epsilon^2$')
+ax.legend(loc='upper right')
 ax.set_xlim(0, None)
-ax.grid()
+```
 
-# ax.set_ylim(-0.05, 5.05)
+The solutions of $s e^s = -r$ are given by the Lambert W function $s = W(-r)$ ([mathworld](https://mathworld.wolfram.com/LambertW-Function.html)). This complex-valued function has many branches, like the logarithm. For stability it is required that $\mathrm{Re}\,s < 0$ for all branches. It can be shown that the principal branch (labelled $k=0$) has the greatest real part, and is therefore the branch that determines stability. The critical value of $r$ is about $1.57$.
+
+```{python}
+def relamb(r):
+    return lambertw(-r).real
+
+root = root_scalar(relamb, method='newton', x0=2)
+root
 ```
 
 ```{python}
-#| scrolled: true
+fig, axs = plt.subplots(1, 2, figsize=(12, 4))
 rr = np.linspace(0, 3.0, 101)
+ax = axs[0]
 for branch in range(-1, 1):
     ss = s = lambertw(-rr, branch)
-    plt.scatter(ss.real, ss.imag, c=rr, cmap='plasma')
+    sc = ax.scatter(ss.real, ss.imag, c=rr, cmap='plasma')
 
-plt.colorbar()
+fig.colorbar(sc)
+ax.set_xlabel('Re s')
+ax.set_ylabel('Im s')
 # plt.plot(rr, ss.imag)
-plt.grid()
-```
+ax.grid()
 
-```{python}
-s.real
+ax = axs[1]
+ax.plot(rr, lambertw(-rr).real)
+ax.vlines([root.root], -1, 1, color = 'k', linestyle = '--')
+ax.set_xlabel('r')
+ax.set_ylabel('Re s')
+ax.set_ylim(-1, 1)
+ax.grid()
 ```
 
 
