@@ -50,13 +50,11 @@ jobs:
         git config --global user.name "github-actions[bot]"
         git config --global user.email "github-actions[bot]@users.noreply.github.com"
         git fetch origin notebooks || true
-        git checkout -B notebooks
-        git reset --hard
+        git checkout -B notebooks origin/notebooks
         rm -rf ./*
         cp -a /tmp/notebooks/. .
         git add -A
         git commit -m "Deploy updated notebooks" || echo "No changes to commit"
         # Overwrite existing state, but keep history (don't force push)
-        git merge -s ours --allow-unrelated-histories origin/notebooks
         git push origin notebooks
 
