@@ -56,5 +56,7 @@ jobs:
         cp -a /tmp/notebooks/. .
         git add -A
         git commit -m "Deploy updated notebooks" || echo "No changes to commit"
-        git push -f origin notebooks
+        # Overwrite existing state, but keep history (don't force push)
+        git merge -s ours --allow-unrelated-histories origin/notebooks
+        git push origin notebooks
 

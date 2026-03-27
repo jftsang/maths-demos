@@ -16,6 +16,7 @@ The most famous and elementary types of Markov processes are Markov
 chains ([Wikipedia](https://en.wikipedia.org/wiki/Markov_chain)), which
 have a discrete set of states (which may be infinite) and evolution
 between the states takes place in discrete, uniform units of time.
+
 However, for some systems a **continuous-time Markov process** may be
 more appropriate. Under continuous-time evolution, we speak not of
 ‘transition probabilities’ but rather of ‘transition rates’. This is
@@ -24,17 +25,16 @@ properties (*e.g.* the population of a species) on time, and when the
 rate of change depends on the quantity (*e.g.* higher population implies
 shorter periods between birth or death events).
 
-In the examples below, the dynamical quantities are still assumed to
-take discrete values; it is only the time between state evolutions that
-is assumed to be continuous. This makes these CTMPs different from
-Brownian processes, where the dynamical quantities (*e.g.* position of a
-particle) are also continuous.
+The CTMP examples below have discrete states but continuous time. This
+distinguishes them from Brownian processes, where the dynamical
+quantities (*e.g.* the position of a particle) are also continuous.
 
 At each state, the transition rates to other possible states are given
 by specifying a transition function, and typically these transitions are
-assumed to be Poisson processes - with the first event to ‘trigger’
-determining the next state that is visited. The time to transition is
-therefore distributed according to an exponential distribution.
+assumed to be Poisson processes: each transition has a rate of occuring
+per unit time, and the first event to ‘trigger’ is the transition that
+is actually taken. The time to transition is therefore distributed
+according to an exponential distribution.
 
 
 ```{python}
@@ -327,7 +327,7 @@ def logistic_demo(r):
     plt.show()
 ```
 
-## Stochastic Lotka-Volterra
+## Stochastic Lotka-Volterra (two-population system)
 
 The [Lotka-Volterra
 equations](https://en.wikipedia.org/wiki/Lotka%E2%80%93Volterra_equations)
@@ -358,9 +358,13 @@ def lv_transition_fun(t, n):
 ```{python}
 @interact()
 def lv_demo():
-    ts, history = evolution(lv_transition_fun, (0, 25000), [1, 0.75],
-                        t_eval=np.linspace(0, 25000, 101),
-                        maxrate=10)
+    ts, history = evolution(
+        lv_transition_fun,
+        (0, 25000),
+        [1, 0.75],
+        t_eval=np.linspace(0, 25000, 101),
+        maxrate=10,
+    )
     prey, predators = history[:, 0], history[:, 1]
     fig = plt.figure(figsize=(8, 6))
     plt.plot(ts, prey, 'g-',
