@@ -54,20 +54,37 @@ logging.getLogger().setLevel(logging.WARN)
 ```
 
 One way to numerically simulate a CTMP is to use an *event-driven
-simulation*. At a given state, the transition rates are calculated (as
-specified by the transition function); and random exponential variables
-are sampled, one for each of the transition rates. These r.v.s are the
-times until each of the possible transitions triggers. The ‘shortest
-time wins’ and the state evolves to the corresponding state.
+simulation*. At a given state, each possible transition has an
+associated rate. For each transition, a random exponential variable with
+that rate is sampled: this is the time until that transition would
+trigger in the absence of any others. The smallest of these transition
+times determines the transition that is actually taken.
 
 To avoid numerical overflow or underflow, we terminate the solution if
-transition rates become too large (and therefore evolution times too
-small).
+transition rates become too large (and therefore transition times are
+too small).
 
 ```{python}
-def evolution(fun, tspan, state0, *, args=(), t_eval=None, maxrate=1e6):
-    """Event-driven simulation of a continuous-time Markov process."""
-    # TODO specify max rate/min step, to interrupt in case of very high rates
+def evolution(ratefunc, tspan, state0, *, t_eval=None, maxrate=1e6, args=(), kwargs=None):
+    """Event-driven simulation of a continuous-time Markov process.
+
+    The transition function `ratefunc` is a callable of the form
+    f(t, state, *args) that should return a dictionary whose keys are
+    the possible new states and whose values are the transition rates
+    (probability per unit time).
+
+    @param ratefunc transition function
+    @param tspan tuple of (tmin, tmax)
+    @param state0 initial state
+    @param t_eval Array of times at which the output should be given
+    @param maxrate Maximum allowed transition rate, abort the process if exceeded
+    @param args additional args passed to ratefunc
+    @param kwargs additional kwargs passed to ratefunc
+    """
+
+    if kwargs is None:
+        kwargs = {}
+
     tmin, tmax = tspan
 
     state = state0
@@ -76,7 +93,7 @@ def evolution(fun, tspan, state0, *, args=(), t_eval=None, maxrate=1e6):
     history = [state0]
 
     while t < tmax:
-        transitions = fun(t, state, *args)
+        transitions = ratefunc(t, state, *args, **kwargs)
         transitions = {k: transitions[k] for k in transitions if transitions[k] > 0}
         if not transitions:
             break
@@ -91,7 +108,6 @@ def evolution(fun, tspan, state0, *, args=(), t_eval=None, maxrate=1e6):
                 break
 
         logging.info(transitions)
-
 
         times_to_move = {k: np.random.exponential(1/transitions[k]) for k in transitions}
         logging.info(times_to_move)
