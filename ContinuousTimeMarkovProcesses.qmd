@@ -210,38 +210,50 @@ def immigration_2_or_3_death_demo(l_2, l_3, beta):
 Throughout we normalize such that $\beta = 1$, so that we can work with
 $r = \lambda / \beta$ instead.
 
-In the steady state, the generating function satisfies the equation $$
+In the steady state, the generating function satisfies the equation 
+$$
 s \frac{\partial^2\phi}{\partial s^2} = r \phi, \qquad \phi(s=1) = 1, \text{with $\phi(s=0)$ bounded}.
-$$ This equation does not have a simple closed-form solution, although
-the solution can be written as: $$
+$$ 
+This equation does not have a simple closed-form solution, although
+the solution can be written as: 
+$$
 \phi = \frac{ s^{1/2} I_1\left(2(rs)^{1/2}\right) }{I_1\left(2r^{1/2}\right)}
-$$ where $I_n$ is a [modified Bessel function of the first
-kind](https://mathworld.wolfram.com/ModifiedBesselFunctionoftheFirstKind.html),
-the solution to the differential equation $$
+$$ 
+where $I_n$ is a [modified Bessel function of the first kind][bessel],
+the solution to the differential equation 
+$$
 x^2 y'' + x y' - (x^2 + n^2) y = 0
-$$ that is regular at $x = 0$. Then (according to Wolfram Alpha)… $$
+$$ 
+that is regular at $x = 0$. Then (according to Wolfram Alpha)… 
+$$
 \mu = \frac{\partial\phi}{\partial s}(s=1) = \frac{1}{2} \left[
 \frac{r^{1/2}}{I_1(2 r^{1/2})} \left(
 I_0(2r^{1/2}) + I_2(2r^{1/2})
 \right) + 1\right].
-$$ We also know that $$
+$$ 
+
+We also know that 
+$$
 \sigma = \sqrt{r + \mu - \mu^2}.
 $$
 
-It can be shown ([source](https://dlmf.nist.gov/10.40)) that, as
-$z \rightarrow \infty$, then for any $n$, $$
+It can be shown ([source][besselasymp]) that, as
+$z \rightarrow \infty$, then for any $n$, 
+$$
 I_n(z) \sim \frac{\mathrm{e}^z}{(2\pi z)^{1/2}},
-$$ and therefore (at leading order):
-$$ \mu \sim r^{1/2}, \quad \sigma \sim r^{1/4}. $$ This is consistent
+$$ 
+and therefore (at leading order):
+$$ \mu \sim r^{1/2}, \quad \sigma \sim r^{1/4}. $$ 
+This is consistent
 with what you might expect from a scaling (dimensional analytical)
 argument.
+
+[bessel]: https://mathworld.wolfram.com/ModifiedBesselFunctionoftheFirstKind.html
+[besselasymp]: https://dlmf.nist.gov/10.40
 
 ```{python}
 # modified Bessel function of the first kind
 from scipy.special import iv
-```
-
-```{python}
 from tqdm.auto import tqdm
 
 @interact(
@@ -302,9 +314,6 @@ def immigration_nonlinear_death_demo(r):
     plt.show()
 ```
 
-```{python}
-plt.hist?
-```
 
 ## Logistic dynamics
 
