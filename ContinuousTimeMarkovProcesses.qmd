@@ -255,9 +255,11 @@ def immigration_nonlinear_death_demo(r):
 
 ## Logistic dynamics
 
+Here is another "logistic dynamics" system for another population of size $n(t)$. The birth rate is $rn$ and the death rate is $-n^2$. The equilibrium population size is therefore $r$. 
+
 ```{python}
 @interact(
-    r=widgets.FloatSlider(min=1, max=100, value=1, step=1, continuous_update=False),
+    r=widgets.FloatSlider(min=1, max=100, value=30, step=1, continuous_update=False),
 )
 def logistic_demo(r):
     def transition_fun(t, n, r):
@@ -266,13 +268,35 @@ def logistic_demo(r):
             n - 1: n**2
         }
 
-    tmax = 10
-    ts, history = evolution(transition_fun, (0, tmax), 1,
+    tmax = 3
+    ts, history = evolution(transition_fun, (0, tmax), state0=1,
                         args=(r,))
 
     plt.plot(ts, history, 'r-')
     plt.show()
 ```
+
+```{python}
+@interact(
+    r=widgets.FloatSlider(min=1, max=100, value=30, step=1, continuous_update=False),
+)
+def logistic_demo(r):
+    def transition_fun(t, n, r):
+        return {
+            n + 1: r*n,
+            n - 1: n**2
+        }
+
+    tmax = 3
+    ts, history = evolution(transition_fun, (0, tmax), state0=1,
+                        args=(r,),
+                        t_eval = np.linspace(0, tmax, 50)
+                        )
+
+    plt.plot(ts, history, 'r-')
+    plt.show()
+```
+
 
 ## Stochastic Lotka-Volterra (two-population system)
 
