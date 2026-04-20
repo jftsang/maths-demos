@@ -424,7 +424,9 @@ def lv_ensemble_demo():
         plt.gca().grid()
 ```
 
-## Stochastic harmonic oscillator
+## Stochastic harmonic oscillator
+
+Here is a simpler examople of a 2D random walk process that is somewhat analogous to the simple harmonic oscillator. The mean flow should obey the same equations as the simple harmonic oscillator (in 2D phase space). 
 
 ```{python}
 def sho_transition_fun(t, s):
@@ -443,40 +445,68 @@ def sho_demo():
     tmax = 100
     ts, history = evolution(sho_transition_fun, (0, tmax), [40, 40],
                         t_eval=np.linspace(0, tmax, 121))
-    plt.plot(ts, history)
-    plt.show()
 
-    plt.plot(history[:, 0], history[:, 1])
+    fig, axs = plt.subplots(2, 1)
+    ax = axs[0]
+    ax.plot(ts, history)
+    
+    ax = axs[1]
+    ax.plot(history[:, 0], history[:, 1])
     plt.show()
 ```
 
-Although each individual realisation is noisy, the ensemble average
-again shows remarkable periodicity. However, unlike the Lotka-Volterra
-system, here there is quite a lot of variance.
+Each individual realisation is noisy. The ensemble average
+again shows remarkable periodicity but there is plenty of variance as time progresses.
 
 ```{python}
-@interact()
+@interact()  # no parameters, just for namespacing
 def sho_ensemble_demo():
-    initial_states = [(30 + r*np.cos(th), 40 + r*np.sin(th))
-                  for r in np.linspace(1, 5, 5)
-                  for th in np.linspace(0, 2*np.pi, 9)]
+    # initial_states = [(30 + r*np.cos(th), 40 + r*np.sin(th))
+    #               for r in np.linspace(1, 5, 5)
+    #               for th in np.linspace(0, 2*np.pi, 9)]
+    # All trajectories start off the same
+    initial_states = [(50, 0) for _ in range(10)]
+    nsim = len(initial_states)
 
-    histories = [evolution(sho_transition_fun, (0, 25), s, t_eval=np.linspace(0, 25, 161))[1]
-                 for s in initial_states]
-    average_x = np.average([h[:, 0] for h in histories], axis=0)
-    average_y = np.average([h[:, 1] for h in histories], axis=0)
+    t_eval = np.linspace(0, 25, 161)
+    results = [
+        evolution(sho_transition_fun, (0, 25), s, t_eval=t_eval)
+        for s in initial_states
+    ]
+    histories = np.array([r.history for r in results])
+    print(histories.shape)
+
+    xs = histories[:, :, 0]
+    ys = histories[:, :, 1]
+
+    # ensemble averages and standard deviations
+    average_x = np.average(xs, axis=0)
+    x_std = np.std(xs, axis=0)
+    average_y = np.average(ys, axis=0)
+    y_std = np.std(ys, axis=0)
+
+    fig, axs = plt.subplots(2, 1, figsize=(6, 3))
+    ax = axs[0]
+    ax.plot(t_eval, average_x, 'g-')
+    ax.plot(t_eval, average_x - x_std, 'g--')
+    ax.plot(t_eval, average_x + x_std, 'g--')
+    ax = axs[1]
+    ax.plot(t_eval, average_y, 'b-')
+    ax.plot(t_eval, average_y - y_std, 'b--')
+    ax.plot(t_eval, average_y + y_std, 'b--')
 
     @interact(step=widgets.IntSlider(min=0, max=len(histories[0])-1, value=0, continuous_update=False))
     def plot_evolution(step):
         final_states = [h[step][1] for h in histories]
 
-        plt.figure(figsize=[8,8])
+        plt.figure(figsize=(4, 4))
         plt.plot(
             average_x, average_y, 'r-',
+            average_x[step], average_y[step], 'ro',
             [x[step, 0] for x in histories],
             [x[step, 1] for x in histories],
                 'k.',
-            average_x[step], average_y[step], 'ro',)
+            )
         plt.gca().set_xlim([-60, 60])
         plt.gca().set_ylim([-60, 60])
         plt.gca().set_aspect('equal')

@@ -15,11 +15,11 @@ class EvolutionResult:
 
     def __iter__(self):
         """Allow unpacking (backwards compatibility)."""
-        warnings.warn(
-            f"Unpacking a {self.__class__} is no longer recommended",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
+        # warnings.warn(
+        #     f"Unpacking a {self.__class__} is no longer recommended",
+        #     category=DeprecationWarning,
+        #     stacklevel=2,
+        # )
         return iter([self.ts, self.history])
 
 
