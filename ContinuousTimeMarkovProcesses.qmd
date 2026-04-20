@@ -354,7 +354,7 @@ def lv_demo():
         maxrate=10,
     )
     prey, predators = history[:, 0], history[:, 1]
-    fig = plt.figure(figsize=(8, 6))
+    fig = plt.figure(figsize=(8, 3))
     plt.plot(ts, prey, 'g-',
              ts, predators, 'r-')
     plt.grid()
@@ -382,35 +382,54 @@ closed loops.
 
 If we calculate the *ensemble average* of several realisations (perhaps
 with different initial conditions), we will find that the average also
-executes very periodic behaviour.
+executes periodic behaviour. However, the variance (uncertainty) grows over time and eventually comes to dominate over the periodic behaviour.
 
 ```{python}
 @interact()
 def lv_ensemble_demo():
     # Same initial conditions
-    n_states = 5
+    n_states = 20
     initial_states = [(1, 1) for _ in range(n_states)]
-
 
     # # Or different initial conditions
     # initial_states = [(1 + r*np.cos(th), 1 + r*np.sin(th))
     #                   for r in np.linspace(.1, .4, 4)
     #                   for th in np.linspace(0, 2*np.pi, 9)[:-1]]
 
-    tmax = 25000
+    tmax = 80_000
     ts = np.linspace(0, tmax, 201)
 
     results = [evolution(lv_transition_fun, (0, tmax), s, t_eval=ts,
-                          maxrate=20) for s in initial_states]
-    histories = [r.history for r in results]
+                          maxrate=20) for s in tqdm(initial_states)]
+    histories = np.array([r.history for r in results])
+    xs = histories[:, :, 0]
+    ys = histories[:, :, 1]
 
-    average_x = np.average([h[:, 0] for h in histories], axis=0)
-    average_y = np.average([h[:, 1] for h in histories], axis=0)
+    # Ensemble averages and stdevs
+    average_x = np.average(xs, axis=0)
+    x_std = np.std(xs, axis=0)
+    average_y = np.average(ys, axis=0)
+    y_std = np.std(ys, axis=0)
+
+    fig, ax = plt.subplots(1, 1, figsize=(6, 3))
+    ax.plot(ts, average_x, 'g-', label="prey")
+    ax.plot(ts, average_x - x_std, 'g--')
+    ax.plot(ts, average_x + x_std, 'g--')
+    ax.fill_between(
+        ts, average_x - x_std, average_x + x_std, fc='g', alpha=0.3
+    )
+    ax.plot(ts, average_y, 'r-', label='predators')
+    ax.plot(ts, average_y - y_std, 'r--')
+    ax.plot(ts, average_y + y_std, 'r--')
+    ax.fill_between(
+        ts, average_y - y_std, average_y + y_std, fc='r', alpha=0.3
+    )
+    ax.legend()
 
     @interact(step=widgets.IntSlider(min=0, max=len(ts)-1, value=0, continuous_update=False))
     def plot_evolution(step):
         final_states = [h[1, :] for h in histories]
-        plt.figure(figsize=[8,8])
+        plt.figure(figsize=(4, 4))
         plt.plot(
             average_x, average_y, 'r-',
             [x[step][0] for x in histories],
@@ -543,7 +562,12 @@ initial_states = [(60 + r*np.cos(th), 60 + r*np.sin(th))
                   for r in np.linspace(1, 5, 5)
                   for th in np.linspace(0, 2*np.pi, 9)[:-1]]
 
-histories = [evolution(transition_fun, (0, 100), s, t_eval=np.linspace(0, 100, 251))[1] for s in initial_states]
+
+results = [
+    evolution(transition_fun, (0, 100), s, t_eval=np.linspace(0, 100, 251)) 
+    for s in tqdm(initial_states)
+]
+histories = [r.history for r in results]
 average_x = np.average([h[:, 0] for h in histories], axis=0)
 average_y = np.average([h[:, 1] for h in histories], axis=0)
 ```
@@ -569,32 +593,62 @@ def plot_evolution(step):
 
 ## A singular process
 
+This is a random walk forwards where the rate of advancing from $s$ to $s + 1$ is equal to $s^2$ (capped at an arbitrary maximum value of $s = 1000$).
+
 This is the stochastic version of the dynamical system
-$$ \dot{s} = s^2, $$ which is a classic example of a system with a
-‘finite-time singularity’, meaning that its solutions, which take the
-form $$ s = \frac{1}{s_0^{-1} - t}, $$ reach infinity in a finite amount
-of time. Contrast this to $\dot{s} = s$, with solution $s = s_0 \exp t$,
+$$
+\dot{s} = s^2,
+$$ 
+
+which is a classic example of a system with a
+‘finite-time singularity': its solutions
+$$ 
+s = \frac{1}{s_0^{-1} - t}
+$$ 
+
+become infinite in a finite amount of time $t = s_0^{-1}$. 
+
+Contrast this to $\dot{s} = s$, with solution $s = s_0 \exp t$,
 which diverges but only as $t \rightarrow \infty$.
 
-The stochastic version also exhibits singular behaviour.
+The stochastic version also exhibits singular behaviour but there is a lot more uncertainty over where precisely the blowup occurs.
 
 ```{python}
 @interact()
 def singular_demo():
     def transition_fun(t, s):
-        return {
-            s + 0.01: 100 * s ** 2
-        }
+        if s ** 2 <= 1e6:
+            return {
+                s + 1: s ** 2,
+            }
+        return {}
 
     s0 = 1
     ts, history = evolution(transition_fun, (0, 2), s0,
-                       maxrate=1e8)
+                       maxrate=1e6)
 
-    plt.plot(ts, history,
-            ts, 1/(1/s0 - ts), 'k--')
-    ax = plt.gca()
+    fig, ax = plt.subplots(1, 1)
+
+    ax.plot(ts, history, 'r-', label='stochastic outcome')
+
+    t_eval = np.linspace(0, 2, 100)
+    results = [evolution(transition_fun, (0, 2), s0,
+                       maxrate=1e6, t_eval=t_eval) 
+                       for _ in range(20)]
+    histories = [r.history for r in results]
+    mu = np.mean(histories, axis=0)
+    std = np.std(histories, axis=0)
+
+    ax.plot(t_eval, mu, 'b-', label='ensemble average')
+    ax.plot(t_eval, mu-std, 'b--')
+    ax.plot(t_eval, mu+std, 'b--')
+    ax.fill_between(t_eval, mu-std, mu+std, fc='b', alpha=0.1)
+
+    t01 = np.linspace(0, 1, 1000)[:-1]
+    ax.plot(t01, 1/(1/s0 - t01), 'k--', label='continuous analogue')
     ax.set_yscale('log')
-    ax.legend(['stochastic solution', 'continuous solution'])
+    ax.legend()
+
     plt.show()
 ```
 

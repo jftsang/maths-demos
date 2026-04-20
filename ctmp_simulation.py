@@ -78,7 +78,7 @@ def evolution[S](
 
         if maxrate:
             transitions = {
-                k: transitions[k] for k in transitions if transitions[k] < maxrate
+                k: transitions[k] for k in transitions if transitions[k] <= maxrate
             }
             if not transitions:
                 warnings.warn(
