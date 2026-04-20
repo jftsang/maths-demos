@@ -207,7 +207,7 @@ def immigration_nonlinear_death_demo(r):
             s - 1: f(s)
         }
 
-    n0 = 10
+    n0 = 0
 
     tmax = 200
     ts, history = evolution(transition_fun, (0, tmax), n0,
@@ -230,20 +230,37 @@ def immigration_nonlinear_death_demo(r):
     ax.hist(history[:-1], weights=np.diff(ts), density=True)
     ax.set_xlim([0, 20])
 
+    nsims = 100
     tmax = 30
+    t_eval = np.arange(0, tmax, 1)
     ax = axs[0, 1]
     finals = []
-    for i in tqdm(range(200)):
+    histories = []
+    for i in tqdm(range(nsims)):
         ts, history = evolution(transition_fun, (0, tmax), n0,
                         args=(r,),
-                        t_eval=np.arange(0, tmax, 1))
+                        t_eval=t_eval)
         if i < 10:
             ax.plot(ts, history,
-                ts, [mean] * len(ts), 'k--',
-                ts, [mean + sigma] * len(ts), 'k:',
-                ts, [mean - sigma] * len(ts), 'k:',
+                lw=0.5
             )
+        histories.append(history)
         finals.append(history[-1])
+
+    ax.plot(
+        ts, [mean] * len(ts), 'k--',
+        ts, [mean + sigma] * len(ts), 'k:',
+        ts, [mean - sigma] * len(ts), 'k:',
+    )
+
+    histories = np.array(histories)
+    mu = np.mean(histories, axis=0)
+    std = np.std(histories, axis=0)
+
+    ax.plot(t_eval, mu, 'k', lw=2)
+    ax.plot(t_eval, mu + std, 'k--', lw=1)
+    ax.plot(t_eval, mu - std, 'k--', lw=1)
+    ax.fill_between(t_eval, mu - std, mu + std, fc='k', alpha=0.4)
 
     ax = axs[1, 1]
     ax.hist(finals, density=True)
@@ -383,8 +400,9 @@ def lv_ensemble_demo():
     tmax = 25000
     ts = np.linspace(0, tmax, 201)
 
-    histories = [evolution(lv_transition_fun, (0, tmax), s, t_eval=ts,
-                          maxrate=20)[1] for s in initial_states]
+    results = [evolution(lv_transition_fun, (0, tmax), s, t_eval=ts,
+                          maxrate=20) for s in initial_states]
+    histories = [r.history for r in results]
 
     average_x = np.average([h[:, 0] for h in histories], axis=0)
     average_y = np.average([h[:, 1] for h in histories], axis=0)
