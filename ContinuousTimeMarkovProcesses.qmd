@@ -80,7 +80,7 @@ Without loss of generality, we can take $\beta = 1$ and rescale time accordingly
 @interact(
     l_1=widgets.FloatSlider(min=0, max=10, value=5, continuous_update=False),
     l_2=widgets.FloatSlider(min=0, max=10, value=5, continuous_update=False),
-    beta=widgets.FloatSlider(min=0, max=2, value=1, continuous_update=False),
+    beta=widgets.FloatSlider(min=0.1, max=2, value=1, continuous_update=False),
 )
 def immigration_death_demo(l_1, l_2, beta):
     def transition_fun(t, s, l_1, l_2, beta):
@@ -90,7 +90,7 @@ def immigration_death_demo(l_1, l_2, beta):
             s - 1: beta * s
         }
 
-    tmax = 500
+    tmax = 100
     ts, history = evolution(transition_fun, (0, tmax), 0,
                         args=(l_1, l_2, beta),
                         t_eval=np.arange(0, tmax, 1))
@@ -151,7 +151,7 @@ $r = \lambda / \beta$ instead.
 In the steady state, the generating function satisfies the equation 
 $$
 s \frac{\partial^2\phi}{\partial s^2} = r \phi, \qquad \phi(s=1) = 1, \text{with $\phi(s=0)$ bounded}.
-$$ 
+$$
 This equation does not have a simple closed-form solution, although
 the solution can be written as: 
 $$

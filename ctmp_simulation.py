@@ -1,23 +1,38 @@
 import logging
 import warnings
-from typing import Any, Callable, TypeVar
+from typing import Callable, ParamSpec, Concatenate
 
 import numpy as np
 from scipy.interpolate import interp1d
 
-S = TypeVar("S")
+P = ParamSpec("P")
 
 
-def evolution(
-    ratefunc: Callable[[float, S], dict[S, float]],
+class EvolutionResult:
+    def __init__(self, ts, history):
+        self.ts: np.ndarray = ts
+        self.history: np.ndarray = history
+
+    def __iter__(self):
+        """Allow unpacking (backwards compatibility)."""
+        warnings.warn(
+            f"Unpacking a {self.__class__} is no longer recommended",
+            category=DeprecationWarning,
+            stacklevel=2,
+        )
+        return iter([self.ts, self.history])
+
+
+def evolution[S](
+    ratefunc: Callable[Concatenate[float, S, P], dict[S, float]],
     tspan: tuple[float, float],
     state0: S,
     *,
-    t_eval=None,
+    t_eval: np.ndarray | None = None,
     maxrate: float = 1e6,
-    args: tuple = (),
-    kwargs: dict[str, Any] | None = None,
-):
+    args: P.args = (),  # ty:ignore[invalid-parameter-default, invalid-paramspec]
+    kwargs: P.kwargs = None,  # ty:ignore[invalid-parameter-default, invalid-paramspec]
+) -> EvolutionResult:
     """Event-driven simulation of a continuous-time Markov process.
 
     The transition function `ratefunc` is a callable of the form
@@ -35,9 +50,17 @@ def evolution(
     """
 
     if kwargs is None:
-        kwargs = {}
+        kwargs: P.kwargs = {}
 
     tmin, tmax = tspan
+
+    if t_eval is not None:
+        if np.any(t_eval[:-1] >= t_eval[1:]):
+            raise ValueError("t_eval must be sorted")
+        if t_eval[0] < tmin:
+            raise ValueError(f"{t_eval[0] = } but {tmin = }")
+        if t_eval[-1] > tmax:
+            raise ValueError(f"{t_eval[-1] = } but {tmax = }")
 
     state = state0
     t = tmin
@@ -58,6 +81,7 @@ def evolution(
                 warnings.warn(
                     f"Maximum rate {maxrate} exceeded by all possible transitions at time {t}.",
                     RuntimeWarning,
+                    stacklevel=2,
                 )
                 break
 
@@ -79,7 +103,7 @@ def evolution(
     history = np.array(history)
 
     if t_eval is None:
-        return ts, history
+        return EvolutionResult(ts, history)
 
     interp = interp1d(ts, history, kind="previous", axis=0)
-    return np.array(t_eval), np.array([interp(t) for t in t_eval])
+    return EvolutionResult(np.array(t_eval), np.array([interp(t) for t in t_eval]))
