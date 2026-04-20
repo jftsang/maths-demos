@@ -15,11 +15,11 @@ class EvolutionResult:
 
     def __iter__(self):
         """Allow unpacking (backwards compatibility)."""
-        warnings.warn(
-            f"Unpacking a {self.__class__} is no longer recommended",
-            category=DeprecationWarning,
-            stacklevel=2,
-        )
+        # warnings.warn(
+        #     f"Unpacking a {self.__class__} is no longer recommended",
+        #     category=DeprecationWarning,
+        #     stacklevel=2,
+        # )
         return iter([self.ts, self.history])
 
 
@@ -71,11 +71,14 @@ def evolution[S](
         transitions = ratefunc(t, state, *args, **kwargs)
         transitions = {k: transitions[k] for k in transitions if transitions[k] > 0}
         if not transitions:
+            # No way to leave this state, staying here forever
+            ts.append(tmax)
+            history.append(state)
             break
 
         if maxrate:
             transitions = {
-                k: transitions[k] for k in transitions if transitions[k] < maxrate
+                k: transitions[k] for k in transitions if transitions[k] <= maxrate
             }
             if not transitions:
                 warnings.warn(
@@ -94,10 +97,18 @@ def evolution[S](
 
         new_state = min(times_to_move, key=lambda k: times_to_move[k])
         time_elapsed = times_to_move[new_state]
-        t += time_elapsed
-        state = new_state
-        ts.append(t)
-        history.append(state)
+        if t + time_elapsed < tmax:
+            # move to the next state
+            t += time_elapsed
+            state = new_state
+            ts.append(t)
+            history.append(state)
+        else:
+            # had to wait too long before going to next state
+            # stay here instead
+            ts.append(tmax)
+            history.append(state)
+            break
 
     ts = np.array(ts)
     history = np.array(history)
