@@ -90,10 +90,11 @@ def immigration_death_demo(l_1, l_2, beta):
             s - 1: beta * s
         }
 
-    tmax = 100
+    tmax = 50
     ts, history = evolution(transition_fun, (0, tmax), 0,
                         args=(l_1, l_2, beta),
-                        t_eval=np.arange(0, tmax, 1))
+                        # t_eval=np.arange(0, tmax, 1)
+                        )
 
     mean = 1/beta * (l_1 + 2*l_2)
     sigma = (1/beta * (l_1 + 3*l_2))**0.5
@@ -129,7 +130,8 @@ def immigration_2_or_3_death_demo(l_2, l_3, beta):
     tmax = 500
     ts, history = evolution(transition_fun, (0, tmax), 0,
                         args=(l_2, l_3, beta),
-                        t_eval=np.arange(0, tmax, 1))
+                        # t_eval=np.arange(0, tmax, 1)
+                        )
 
     mean = 1/beta * (2*l_2 + 3*l_3)
 #     sigma = 0  # FIXME
@@ -209,10 +211,11 @@ def immigration_nonlinear_death_demo(r):
 
     n0 = 0
 
-    tmax = 200
+    tmax = 10
     ts, history = evolution(transition_fun, (0, tmax), n0,
                         args=(r,),
-                        t_eval=np.arange(0, tmax, 1))
+                        # t_eval=np.arange(0, tmax, 1)
+                        )
 
     z = 2*r**0.5
     mean = 0.5 * (r**0.5/iv(1, z) * (iv(0, z) + iv(2, z)) + 1 )
@@ -231,8 +234,8 @@ def immigration_nonlinear_death_demo(r):
     ax.set_xlim([0, 20])
 
     nsims = 100
-    tmax = 30
-    t_eval = np.arange(0, tmax, 1)
+    tmax = 0.5
+    t_eval = np.arange(0, tmax, 0.001)
     ax = axs[0, 1]
     finals = []
     histories = []
@@ -337,7 +340,7 @@ def lv_transition_fun(t, n):
     s = .001
     return {
         (x + s, y): 2/3 * x,
-#         (x - s, y): x * x / 20,
+        # (x - s, y): x * x / 20,
         (x - 4/3*s, y+s): x * y,
         (x, y - s): y
     }
@@ -348,9 +351,9 @@ def lv_transition_fun(t, n):
 def lv_demo():
     ts, history = evolution(
         lv_transition_fun,
-        (0, 25000),
+        (0, 50_000),
         [1, 0.75],
-        t_eval=np.linspace(0, 25000, 101),
+        t_eval=np.linspace(0, 50_000, 1001),
         maxrate=10,
     )
     prey, predators = history[:, 0], history[:, 1]
@@ -385,6 +388,7 @@ with different initial conditions), we will find that the average also
 executes periodic behaviour. However, the variance (uncertainty) grows over time and eventually comes to dominate over the periodic behaviour.
 
 ```{python}
+from tqdm.auto import tqdm
 @interact()
 def lv_ensemble_demo():
     # Same initial conditions
