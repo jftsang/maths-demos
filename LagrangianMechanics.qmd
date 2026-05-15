@@ -139,4 +139,4 @@ $$
 \frac{\mathrm{d}p_i}{\mathrm{d}t} = -\frac{\partial H}{\partial q_i}.
 $$
 
-The Hamiltonian itself is conserved if $\partial{H}/\partial{t} = 0$.
+The Hamiltonian itself is conserved if $\partial{L}/\partial{t} = 0$.
